@@ -30,5 +30,6 @@ This software is made to find degenerate CRISPR-CAS9 gRNA targets in genome! <br
 
 
 **Sample run:** <br/>
-*install.R*
+*git clone https://github.com/aprezvykh/ropsir* <br/>
+*install.R* <br/>
 *./ropsir.sh -g data/genome.fa -a data/genome.gtf -w 7 -d T -t 16 -p AA -u TTT -pr testrun* <br/>
