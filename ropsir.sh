@@ -102,6 +102,11 @@ case $key in
 esac
 done
 
+curr_exec_dir=$(pwd)
+script_dir=$(dirname $0 | tr -d '.')
+#echo $curr_exec_dir
+#echo $script_dir
+
 ###testing if positional args missing
 
 if [[ -z "$genome" ]]
@@ -175,10 +180,10 @@ echo UNALLOWER PAM END IS SET TO         = "${unallowed_pam_end}"
 echo THREADS IS SET TI = "${threads}"
 echo SCRIPT EXECUTION DIR IS $pwd
 
-all_ngg_sequences=potential_ngg.fasta
-all_ngg_sequences_dbg=potential_dbg_ngg.fasta
-all_ngg_sequences_space=potential_ngg.fasta.parsed
-final_spacers=ngg.headers.fasta
+all_ngg_sequences=$curr_exec_dir/potential_ngg.fasta
+all_ngg_sequences_dbg=$curr_exec_dir/potential_dbg_ngg.fasta
+all_ngg_sequences_space=$curr_exec_dir/potential_ngg.fasta.parsed
+final_spacers=$curr_exec_dir/ngg.headers.fasta
 
 ###checking dependenciesт
 cpu_n=$(nproc)
@@ -264,7 +269,7 @@ spacer_regexp=$(yes '.' | head -n $spacer_length | tr -d '\n')
 if [ $protein_coding_only = "T" ] || [ $protein_coding_only = "t" ]
 	then
 		echo "Using only protein-coding sequences!"
-		genome_cds=genome_cds.fasta
+		genome_cds=$curr_exec_dir/genome_cds.fasta
 		gffread -w $genome_cds -W -O -E -L -F -g $genome $annotation_file
 		genome=$genome_cds
 	elif [ $protein_coding_only = "F" ] || [ $protein_coding_only = "F" ]
@@ -344,7 +349,7 @@ echo "Executing R script, adding fasta headers for each spacer and GC content ca
 echo "Some useless information may be printed below:"
 
 
-./enter_fasta_headers.R $(pwd)
+$script_dir/./enter_fasta_headers.R $curr_exec_dir
 
 blastb_dir=$(dirname $genome)
 is_blastdb=$(ls $blastdb_dir | grep ".nin" | wc -l)
@@ -365,29 +370,18 @@ blastn -task 'blastn-short' -db $genome -query $final_spacers -num_threads $thre
 echo "Evaluating XML parser"
 blastxmlparser --threads $threads -n 'hit.score, hsp.evalue, hsp.qseq, hsp.midline' blast.xml > blast.tsv
 
-
-
-
 blastn_x=$(cat blast.tsv | wc -l)
 blast_f=$(cat blast.outfmt6 | wc -l)
-
-#if [[ $blast_x -ne $blast_f ]] 
-#	then
-#		echo "Error! String numbers in outfmt blast and tabular is non equal!"
-#		exit 0
-#	else
-#		echo "String numbers in tabular and XML are equal!"
-#fi
 
 echo "Executing RNAfold!"
 RNAfold $final_spacers --noPS | grep "\\." | sed 's/[^ ]* //' | sed 's/)//' | sed 's/(//' > energies.txt
 
 echo "Executing final R script!"
-./parse_tsv.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch $protein_coding_only
+$script_dir/./parse_tsv.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch $protein_coding_only
 
 echo "Done! Purging..."
 
-rm blast.xml blast.tsv blast.outfmt6 energies.txt potential_dbg_ngg.fasta potential_ngg.fasta potential_ngg.fasta.parsed  ngg.headers.fasta genome_cds.*
+rm $curr_exec_dir/blast.xml $curr_exec_dir/blast.tsv $curr_exec_dir/blast.outfmt6 $curr_exec_dir/energies.txt $curr_exec_dir/potential_dbg_ngg.fasta $curr_exec_dir/potential_ngg.fasta $curr_exec_dir/potential_ngg.fasta.parsed $curr_exec_dir/ngg.headers.fasta $script_dir/genome_cds.*
 
 echo "Converting to XLS! (ssconvert warning about X11 display is non-crucial, just skip it :) )"
 ls *.csv | parallel 'ssconvert {} {.}.xls'

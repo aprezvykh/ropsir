@@ -2,9 +2,7 @@
 args <- commandArgs()
 library("Biostrings", quietly = TRUE,warn.conflicts = FALSE)
 print("Inserting spacer indexes!")
-
 dir <- args[6]
-
 file <- "potential_ngg.fasta.parsed"
 df <- read.delim(file, stringsAsFactors = F, header = F)
 numbers <- seq(1:length(df[grep(">", df$V1),]))

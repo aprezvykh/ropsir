@@ -181,7 +181,7 @@ if(tolower(protein.coding) == "t"){
   order.highest <- data.frame(table(t(final.df$qseqid)))[order(data.frame(table(t(final.df$qseqid)))$Freq, decreasing = T),]$Var1
   big.final <- data.frame()
   for(f in order.highest){
-    print(f)
+#    print(f)
     df <- final.df[final.df$qseqid == f,]
     big.final <- rbind(df, big.final)
   }
@@ -207,7 +207,7 @@ if(tolower(protein.coding) == "t"){
   order.highest <- data.frame(table(t(final.df$qseqid)))[order(data.frame(table(t(final.df$qseqid)))$Freq, decreasing = T),]$Var1
   big.final <- data.frame()
   for(f in order.highest){
-    print(f)
+#    print(f)
     df <- final.df[final.df$qseqid == f,]
     big.final <- rbind(df, big.final)
   }
