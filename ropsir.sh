@@ -19,8 +19,9 @@ echo "-sm|--seed_mismatch - number of mismatches in seed region"
 echo "-nm|--non_seed_mismatch - number of mismatches in non-seed region"
 echo "-tg| --test_grna - read gRNA sequence and find targets for specified genome ang GTF"
 echo "-pc|--protein_coding_only - use only proteing-coding sequences if T, if F - use all genome (including intergenic) "
-
 banner ROPSIR
+
+###Positional args parse
 
 POSITIONAL=()
 while [[ $# -gt 0 ]]
@@ -101,6 +102,8 @@ case $key in
 esac
 done
 
+###testing if positional args missing
+
 if [[ -z "$genome" ]]
 	then
 		echo "Genome must be specified, nowhere to look for spacer sites!"
@@ -177,6 +180,7 @@ all_ngg_sequences_dbg=potential_dbg_ngg.fasta
 all_ngg_sequences_space=potential_ngg.fasta.parsed
 final_spacers=ngg.headers.fasta
 
+###checking dependenciesт
 cpu_n=$(nproc)
 if [[ $cpu_n -lt 5 ]]
 	then
@@ -376,17 +380,14 @@ blast_f=$(cat blast.outfmt6 | wc -l)
 #fi
 
 echo "Executing RNAfold!"
-echo $final_spacers
-
-RNAfold $final_spacers --noPS | grep ". (" | awk '{print $3}' | sed 's/)//' > energies.txt
+RNAfold $final_spacers --noPS | grep "\\." | sed 's/[^ ]* //' | sed 's/)//' | sed 's/(//' > energies.txt
 
 echo "Executing final R script!"
-
-./parse_tsv.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch
+./parse_tsv.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch $protein_coding_only
 
 echo "Done! Purging..."
 
-rm blast.xml blast.tsv blast.outfmt6 energies.txt potential_dbg_ngg.fasta potential_ngg.fasta potential_ngg.fasta.parsed  ngg.headers.fasta genoms_cds*
+rm blast.xml blast.tsv blast.outfmt6 energies.txt potential_dbg_ngg.fasta potential_ngg.fasta potential_ngg.fasta.parsed  ngg.headers.fasta genome_cds.*
 
 echo "Converting to XLS! (ssconvert warning about X11 display is non-crucial, just skip it :) )"
 ls *.csv | parallel 'ssconvert {} {.}.xls'

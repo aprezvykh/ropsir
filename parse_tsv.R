@@ -15,9 +15,18 @@ prefix <- args[8]
 threads <- args[9]
 seed.mismatch <- args[10]
 non.seed.mismatch <- args[11]
+protein.coding <- args[12]
 
 seed.mismatch <- as.numeric(seed.mismatch)
 non.seed.mismatch <- as.numeric(non.seed.mismatch)
+
+#dir <- c("~/git/ropsir/")
+#gtf.path <- c("~/git/ropsir/data/genome.gtf")
+#prefix <- c("gg")
+#threads <- 32
+#seed.mismatch <- 2
+#non.seed.mismatch <- 4
+#protein.coding <- "F"
 
 cl <- makeCluster(threads,type = "FORK")
 setwd(dir)
@@ -96,7 +105,6 @@ headers <- as.character(fasta[grep(">", fasta$V1),])
 seqs <- as.character(fasta[grep(">", fasta$V1, invert = T),])
 spacer.seqs <- data.frame(headers,seqs)
 spacer.seqs$headers <- gsub(">", "", spacer.seqs$headers)
-#energies[nrow(spacer.seqs) + 1,] <- 0
 energies$name <- spacer.seqs$headers
 names(energies) <- c("val", "name")
 
@@ -136,6 +144,7 @@ df$val <- unlist(parLapply(cl = cl, X = df$mm.pos, fun = parse.mismatch.string))
 print("parsing annotation file. This can take a while...")
 df$loc <- parApply(cl = cl, X = df, MARGIN = 1, FUN = get.loci)
 print("Constructing final data frame!")
+
 final.df <- data.frame()
 
 for(f in unique(df$qseqid)){
@@ -158,47 +167,56 @@ final.df$bb <- NULL
 final.df$cc <- NULL
 final.df$dd <- NULL
 
-#final.df$total.mm <- unlist(lapply(final.df$recon.cigar, count.total.mismatches))
-#final.df <- final.df[final.df$total.mm < 7,]
+###parsing final data frame
+if(tolower(protein.coding) == "t"){
+  final.df$mismatch <- NULL
+  final.df$gapopen <- NULL
+  final.df$evalue <- NULL
+  final.df$qstart <- NULL
+  final.df$qend <- NULL
+  final.df$sticks <- NULL
+  final.df$pident <- NULL
+  final.df$loc <- NULL
+  print("Ordering data frame...")
+  order.highest <- data.frame(table(t(final.df$qseqid)))[order(data.frame(table(t(final.df$qseqid)))$Freq, decreasing = T),]$Var1
+  big.final <- data.frame()
+  for(f in order.highest){
+    print(f)
+    df <- final.df[final.df$qseqid == f,]
+    big.final <- rbind(df, big.final)
+  }
+  
+  big.final <- big.final[seq(dim(big.final)[1],1),]
+  names(big.final) <- c("gRNA.id","gene.id","gRNA.alignment.length", "gRNA.alignment.start",
+                        "gRNA.alignment.length", "bitscore", "aligned.sequence", "cigar.string", "total.mismatch.N",
+                        "mismatch.position", "validation", "gRNA.energy", "PAM.sequence", "GC.content")
+} else if (tolower(protein.coding) == "f") {
+  final.df$mismatch <- NULL
+  final.df$gapopen <- NULL
+  final.df$evalue <- NULL
+  final.df$qstart <- NULL
+  final.df$qend <- NULL
+  final.df$sticks <- NULL
+  final.df$pident <- NULL
+  final.df$coord <- paste(final.df$sseqid, ":", final.df$sstart, "-", final.df$send, sep = "")
+  final.df$sseqid <- NULL
+  final.df$sstart <- NULL
+  final.df$send <- NULL
+  final.df$sticks <- NULL
+  print("Ordering data frame...")
+  order.highest <- data.frame(table(t(final.df$qseqid)))[order(data.frame(table(t(final.df$qseqid)))$Freq, decreasing = T),]$Var1
+  big.final <- data.frame()
+  for(f in order.highest){
+    print(f)
+    df <- final.df[final.df$qseqid == f,]
+    big.final <- rbind(df, big.final)
+  }
+  big.final <- big.final[seq(dim(big.final)[1],1),]
+  names(big.final) <- c("gRNA.id","gRNA.alignment.length", "bitscore",
+                        "aligned.sequence", "cigar.string", "total.mismatch.N",
+                        "mismatch.position", "validation", "gRNA.energy", "PAM.sequence", "GC.content")
+}
 
-print("Creating pictures!")
-chr.hist <- data.frame(table(t(final.df$sseqid)), stringsAsFactors = F)
-names(chr.hist) <- c("chr", "freq")
 
-g1 <- ggplot(data=chr.hist) + geom_bar(aes(x = chr, y = freq), stat = "identity") + 
-  ggtitle("Frequency of spacers per chromosome") + 
-  theme_bw()
-
-genes.hist <- data.frame(table(t(final.df$loc)), stringsAsFactors = F)
-names(genes.hist) <- c("gene", "freq")
-genes.hist <- genes.hist[order(genes.hist$freq, decreasing = T),][1:10,]
-g2 <- ggplot(data=genes.hist) + geom_bar(aes(x = gene, y = freq), stat = "identity") + 
-  ggtitle("Frequency of features (genes or intergenic, top 10)") + 
-  theme_bw()
-
-g3 <- ggplot(data = final.df, aes(y = gc.content, x = energy)) + 
-  stat_density2d(aes(fill = ..density..^0.25), geom = "tile", contour = FALSE, n = 200) + 
-  scale_fill_continuous(low = "white", high = "dodgerblue4") + 
-  ggtitle("GC-content / energy plot") + 
-  theme_bw()
-
-text.on.plot = paste(length(unique(final.df$qseqid)), " spacers", "\n",
-                     nrow(final.df), " alignments", "\n",
-                     round(mean(final.df$length),1), " mean alignment legnth", "\n",
-                     nrow(final.df[final.df$val == "novalid",]), " novalid alignments", "\n",
-                     round(mean(final.df$gc.content),1), "% mean GC content", "\n",
-                     round(mean(final.df$energy),1), " mean gRNA energy", "\n",
-                     length(unique(final.df$loc))-1, " genes",
-                     sep = "")
-
-g4 <- ggplot() + geom_text(aes(x = 2, y = 3), label = text.on.plot, size = 7) + 
-  theme_bw() +
-  theme(panel.grid.major=element_blank(),
-        panel.grid.minor=element_blank())
-
-pdf(paste(prefix,"-pic.pdf", sep = ""), width = 12, height = 12, family = "Helvetica")
-grid.arrange(g1,g2,g3,g4,ncol = 2)
-dev.off()
-
-write.csv(final.df, paste(prefix, "-results.csv", sep = ""))
+write.csv(big.final, paste(prefix, "-results.csv", sep = ""))
 stopCluster(cl = cl)
