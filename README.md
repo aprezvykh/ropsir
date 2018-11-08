@@ -19,6 +19,7 @@ This software is made to find degenerate CRISPR-CAS9 gRNA targets in genome! <br
 *plyr* <br/>
 *dplyr* <br/>
 
+**Run options**
 -g - genome file in FASTA file, file <br/>
 -a - annotation file in GTF format, file <br/>
 -s - length of a spacer sequence exclude PAM site (20, for example), integer <br/>
