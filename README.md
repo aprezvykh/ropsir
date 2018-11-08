@@ -9,6 +9,7 @@ This software is made to find degenerate CRISPR-CAS9 gRNA targets in genome! <br
 *blastxmlparser* (install - sudo gem install blastxmlparser) <br/>
 *RNAfold* (install - sudo apt-get install rnafold) <br/>
 *ssconvert* (optional, converts csv file to xls, install - sudo apt-get install ssconvert) <br/>
+*gffread* (need to convert genome file to CDS sequences) - see https://github.com/gpertea/gffread <br/>
 
 **R packages: (will be installed automatically)** <br/>
 *Biostrings* <br/>
@@ -27,9 +28,16 @@ This software is made to find degenerate CRISPR-CAS9 gRNA targets in genome! <br
 -w - size of the word in blast, integer <br/>
 -d - uses only first 10 PAM sequences (T/F), bool <br/>
 -pr - prefix for output csv file (string) <br/>
-
+-k - do not delete supplementary (T/F), bool files <br/>
+-sm - number of mismatches in seed region, integer <br/>
+-nm - number of mismatches in non-seed region, integer <br/>
+-tg - test specific gRNA sequence to find targets (GATTATAATATTCCTTGTGTTAG, for example), string <br/>
+-pc - use only protein-coding sequences, ignore intergenic region (T/F), bool <br/>
 
 **Sample run:** <br/>
 *git clone https://github.com/aprezvykh/ropsir* <br/>
 *install.R* <br/>
 *./ropsir.sh -g data/genome.fa -a data/genome.gtf -w 7 -d T -t 16 -p AA -u TTT -pr testrun* <br/>
+
+If you found an issue, please, report it in current repository or email me: <br/>
+*aprezvykh@yandex.ru*
