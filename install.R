@@ -1,7 +1,7 @@
 #!/usr/bin/Rscript
 print ("This script will automatically install packages!")
 
-need.pack <- c("rtracklayer","stringr", "parallel", "plyr", "dplyr", "Biostrings")
+need.pack <- c("rtracklayer","stringr", "parallel", "plyr", "dplyr", "Biostrings", "ggplot2", "gridExtra")
 inst <- installed.packages()
 
 for (f in need.pack){

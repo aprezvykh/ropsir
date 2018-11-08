@@ -10,19 +10,24 @@ echo "-s|--spacer_length (integer) - length of a spacer sequence exclude PAM sit
 echo "-u|--unallowed_spacer_string (character) - sequence that not allowed in spacer sequence (TTT, for example)"
 echo "-p|--unallowed_pam_end (character) - PAM sequence, that unallowed (AA, for example)"
 echo "-t|--number_of_threads (integer) - threads number"
-echo "-w|--word_size (integer) - size of the word in blast "
+echo "-w|--word_size (integer) - size of the word in blast (increasing word size will increase number of short and gapped alignments) "
 echo "-a|--annotation_file (filepath) - annotation file in GTF format"
 echo "-d|--debug (logical, T/F) - uses only first 10 PAM sequences "
-echo "-pr | -prefix (will be used in final result file)"
+echo "-pr|-prefix (will be used in final result file)"
+echo "-k|--keep_all_files - used for debug. Do not delete all supplementary files"
+echo "-sm|--seed_mismatch - number of mismatches in seed region"
+echo "-nm|--non_seed_mismatch - number of mismatches in non-seed region"
+echo "-tg| --test_grna - read gRNA sequence and find targets for specified genome ang GTF"
+echo "-pc|--protein_coding_only - use only proteing-coding sequences if T, if F - use all genome (including intergenic) "
 
-#banner ROPSIR
+banner ROPSIR
 
 POSITIONAL=()
 while [[ $# -gt 0 ]]
 do
 key="$1"
 case $key in
-    -g|--genome_fasta)
+    -g|--genome)
     genome="$2"
     shift
     shift
@@ -67,6 +72,32 @@ case $key in
     shift
     shift
     ;;
+    -k|--keep_all_files)
+    prefix="$2"
+    shift
+    shift
+    ;;
+    -sm|--seed_mismatch)
+    seed_mismatch="$2"
+    shift
+    shift
+    ;;
+    -nm|--non_seed_mismatch)
+    non_seed_mismatch="$2"
+    shift
+    shift
+    ;;
+    -tg|--test_grna)
+    test_grna="$2"
+    shift
+    shift
+    ;;
+    -pc|--protein_coding_only)
+    protein_coding_only="$2"
+    shift
+    shift
+    ;;
+
 esac
 done
 
@@ -101,7 +132,7 @@ if [[ -z "$unallowed_spacer_string" ]]
 		unallowed_spacer_string="TTT"
 	fi
 
-if [[ -z "unallowed_pam_end" ]]
+if [[ -z "$unallowed_pam_end" ]]
 	then
 		echo "Unallowed PAM end has not set! Setting default (AA)"
 		unallowed_pam_end="AA"
@@ -110,8 +141,27 @@ if [[ -z "unallowed_pam_end" ]]
 if [[ -z "$threads"  ]]
 	then
 		echo "Threads variable not set! Setting default (nproc output)"
-		threads=$(nproc)
+		threads= $( $(nproc) / 2)
 	fi
+
+if [[ -z "$word_size"  ]]
+        then
+                echo "BLAST word size is not set! Setting default (10)"
+                word_size=10
+        fi
+
+if [[ -z "$seed_mismatch"  ]]
+        then
+                echo "Seed mismatch threshold is not set! Setting default (2)"
+                seed_mismatch=2
+        fi
+
+if [[ -z "$non_seed_mismatch"  ]]
+        then
+                echo "Non seed mismatch threshold is not set! Setting default (4)"
+                non_seed_mismatch=4
+        fi
+
 
 set -- "${POSITIONAL[@]}" # restore positional parameters
 
@@ -207,8 +257,50 @@ if  [[ $is_rnafold -eq 1 ]]
 genome_size=$(cat $genome | wc | awk '{print $3-$1}')
 spacer_regexp=$(yes '.' | head -n $spacer_length | tr -d '\n')
 
-echo "Regular expression used in search is $spacer_regexp"
+if [ $protein_coding_only = "T" ] || [ $protein_coding_only = "t" ]
+	then
+		echo "Using only protein-coding sequences!"
+		genome_cds=genome_cds.fasta
+		gffread -w $genome_cds -W -O -E -L -F -g $genome $annotation_file
+		genome=$genome_cds
+	elif [ $protein_coding_only = "F" ] || [ $protein_coding_only = "F" ]
+		then
+			echo "Using all genome!"
+fi
 
+if [[ ! -z "$test_grna" ]]
+	then
+		parse_tsv_flag=TRUE
+		testgrna_file=testgrna.fasta
+		echo "Testing gRNA with sequence $test_grna"
+		echo ">test_gRNA" > testgrna.fasta
+		echo $test_grna > testgrna.fasta
+		blastb_dir=$(dirname $genome)
+		is_blastdb=$(ls $blastdb_dir | grep ".nin" | wc -l)
+		if [[ $is_blastdb -eq 0 ]]
+        		then
+                		echo "BLAST database not found! Creating..."
+               		 	makeblastdb -in $genome -dbtype nucl
+        		else
+                		echo "BLAST database found! Using existing..."
+        	fi
+		echo "Aligning spacer seqiences to reference genome! Evaluating XML blast output"
+		echo "XML blast"
+		blastn -task 'blastn-short' -db $genome -query $testgrna_file -num_threads $threads -word_size $word_size -outfmt 5 -evalue 100 > blast.xml
+		echo "tabular BLAST"
+		blastn -task 'blastn-short' -db $genome -query $testgrna_file -num_threads $threads -word_size $word_size -outfmt 6 -evalue 100 > blast.outfmt6
+		blastxmlparser --threads $threads -n 'hit.score, hsp.evalue, hsp.qseq, hsp.midline' blast.xml > blast.tsv
+		RNAfold $testgrna_file --noPS | grep ". (" | awk '{print $3}' | sed 's/)//' > energies.txt
+		./parse_tsv_single_gRNA.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch
+		echo "Done! Purging..."
+		rm blast.xml blast.tsv blast.outfmt6 energies.txt testgrna.fasta
+		ls *.csv | parallel 'ssconvert {} {.}.xls'
+		exit 0
+fi
+
+
+
+echo "Regular expression used in search is $spacer_regexp"
 cat $genome | grep -oh "$spacer_regexp.[AG][AG]" | grep -v "$unallowed_spacer_string" | grep -v "$unallowed_pam_end$" > $all_ngg_sequences
 
 ngg_length=$(cat $all_ngg_sequences | wc -l)
@@ -229,7 +321,7 @@ if [[ $ngg_length -eq 0 ]]
 if [ $debug = "T" ] || [ $debug = "t" ]
 	then
 		echo "Debug mode is true, cutting $all_ngg_sequences"
-		head -n 50 $all_ngg_sequences > $all_ngg_sequences_dbg
+		head -n 60 $all_ngg_sequences > $all_ngg_sequences_dbg
 	elif [[ $debug -eq "F" ]]
 		then
 			echo "Debug mod off! Do nothing!"
@@ -250,7 +342,8 @@ echo "Some useless information may be printed below:"
 
 ./enter_fasta_headers.R $(pwd)
 
-is_blastdb=$(ls | grep ".nin" | wc -l)
+blastb_dir=$(dirname $genome)
+is_blastdb=$(ls $blastdb_dir | grep ".nin" | wc -l)
 
 if [[ $is_blastdb -eq 0 ]]
 	then
@@ -263,12 +356,24 @@ if [[ $is_blastdb -eq 0 ]]
 echo "Aligning spacer seqiences to reference genome! Evaluating XML blast output"
 echo "XML blast"
 blastn -task 'blastn-short' -db $genome -query $final_spacers -num_threads $threads -word_size $word_size -outfmt 5 -evalue 100 > blast.xml
-
 echo "tabular blast"
 blastn -task 'blastn-short' -db $genome -query $final_spacers -num_threads $threads -word_size $word_size -outfmt 6 -evalue 100 > blast.outfmt6
-
 echo "Evaluating XML parser"
 blastxmlparser --threads $threads -n 'hit.score, hsp.evalue, hsp.qseq, hsp.midline' blast.xml > blast.tsv
+
+
+
+
+blastn_x=$(cat blast.tsv | wc -l)
+blast_f=$(cat blast.outfmt6 | wc -l)
+
+#if [[ $blast_x -ne $blast_f ]] 
+#	then
+#		echo "Error! String numbers in outfmt blast and tabular is non equal!"
+#		exit 0
+#	else
+#		echo "String numbers in tabular and XML are equal!"
+#fi
 
 echo "Executing RNAfold!"
 echo $final_spacers
@@ -277,11 +382,11 @@ RNAfold $final_spacers --noPS | grep ". (" | awk '{print $3}' | sed 's/)//' > en
 
 echo "Executing final R script!"
 
-./parse_tsv.R $(pwd) $annotation_file $prefix $threads
+./parse_tsv.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch
 
-echo "Done!"
-./purge.sh
+echo "Done! Purging..."
+
+rm blast.xml blast.tsv blast.outfmt6 energies.txt potential_dbg_ngg.fasta potential_ngg.fasta potential_ngg.fasta.parsed  ngg.headers.fasta genoms_cds*
 
 echo "Converting to XLS! (ssconvert warning about X11 display is non-crucial, just skip it :) )"
-
-ssconvert $prefix-result.csv $prefix-results.xls
+ls *.csv | parallel 'ssconvert {} {.}.xls'
