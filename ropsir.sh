@@ -18,6 +18,7 @@ echo "-k|--keep_all_files - used for debug. Do not delete all supplementary file
 echo "-sm|--seed_mismatch - number of mismatches in seed region"
 echo "-nm|--non_seed_mismatch - number of mismatches in non-seed region"
 echo "-tg| --test_grna - read gRNA sequence and find targets for specified genome ang GTF"
+echo "-ts --test_gene - test gRNA (single or multiple) versus specific gene. Gene name should correspond to gene_id column in GTF file!"
 echo "-pc|--protein_coding_only - use only proteing-coding sequences if T, if F - use all genome (including intergenic) "
 
 banner ROPSIR
@@ -96,6 +97,11 @@ case $key in
     ;;
     -pc|--protein_coding_only)
     protein_coding_only="$2"
+    shift
+    shift
+    ;;
+    -ts|--test_gene)
+    test_gene="$2"
     shift
     shift
     ;;
@@ -231,7 +237,7 @@ if [[ $is_blast2bam -eq 1 ]]
         then
                 echo -e "Cannot found blastxmlparser in system! Install blastxmlparser: ${RED}sudo gem instal blastxmlparser${NC}"
                 exit 0
-        fi
+	fi
 
 is_rnafold=$(which RNAfold | wc -l)
 if  [[ $is_rnafold -eq 1 ]]
@@ -366,11 +372,11 @@ echo "Executing RNAfold!"
 RNAfold $final_spacers --noPS | grep "\\." | sed 's/[^ ]* //' | sed 's/)//' | sed 's/(//' > energies.txt
 
 echo "Executing final R script!"
-$script_dir/./parse_tsv.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch $protein_coding_only
+$script_dir/./parse_tsv.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch $protein_coding_only $test_gene
 
 echo "Done! Purging..."
 
-rm $curr_exec_dir/blast.xml $curr_exec_dir/blast.tsv $curr_exec_dir/blast.outfmt6 $curr_exec_dir/energies.txt $curr_exec_dir/potential_dbg_ngg.fasta $curr_exec_dir/potential_ngg.fasta $curr_exec_dir/potential_ngg.fasta.parsed $curr_exec_dir/ngg.headers.fasta $script_dir/genome_cds.*
+ rm $curr_exec_dir/blast.xml $curr_exec_dir/blast.tsv $curr_exec_dir/blast.outfmt6 $curr_exec_dir/energies.txt $curr_exec_dir/potential_dbg_ngg.fasta $curr_exec_dir/potential_ngg.fasta $curr_exec_dir/potential_ngg.fasta.parsed $curr_exec_dir/ngg.headers.fasta $script_dir/genome_cds.*
 
 echo "Converting to XLS! (ssconvert warning about X11 display is non-crucial, just skip it :) )"
 ls *.csv | parallel 'ssconvert {} {.}.xls'

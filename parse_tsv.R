@@ -16,17 +16,19 @@ threads <- args[9]
 seed.mismatch <- args[10]
 non.seed.mismatch <- args[11]
 protein.coding <- args[12]
+test.gene <- args[13]
 
 seed.mismatch <- as.numeric(seed.mismatch)
 non.seed.mismatch <- as.numeric(non.seed.mismatch)
 
-#dir <- c("~/git/ropsir/")
+#dir <- c("~/ropsir.TESTING/")
 #gtf.path <- c("~/git/ropsir/data/genome.gtf")
 #prefix <- c("gg")
 #threads <- 32
 #seed.mismatch <- 2
 #non.seed.mismatch <- 4
 #protein.coding <- "F"
+#test.gene <- "YKL225W"
 
 cl <- makeCluster(threads,type = "FORK")
 setwd(dir)
@@ -97,7 +99,17 @@ exit <- function() {
   .Internal(.invokeRestart(list(NULL, NULL), NULL))
 }
 
-
+if(nchar(test.gene > 1)){
+  gtf <- as.data.frame(import(gtf.path))
+  gtf <- gtf[gtf$gene_id == test.gene,]
+  print(paste("Selected gene contains", nrow(gtf), "features!", sep = " "))
+  if(nrow(gtf) < 1){
+    warning("Cannot find gene in GTF file!")
+    exit()
+  }
+} else if(nchar(test.gene == 0)){
+  gtf <- as.data.frame(import(gtf.path))
+}
 gtf <- as.data.frame(import(gtf.path))
 fasta <- read.delim("ngg.headers.fasta", header = F)
 energies <- read.table("energies.txt", header = F)
@@ -162,61 +174,70 @@ for(f in unique(df$qseqid)){
 final.df <- final.df[grep("XXX$|XX$", final.df$recon.cigar, invert = T),]
 final.df$mm.pos <- gsub("-1", "0", final.df$mm.pos)
 
+if(nchar(test.gene) > 0){
+  final.df <- final.df[final.df$loc == test.gene,]
+  if(nrow(final.df) < 1){
+    warning("0 gRNAs found for your gene!")
+  }
+  print(paste(nrow(final.df), "gRNAs found for your gene!", sep = " "))
+} 
+
 final.df$aa <- NULL
 final.df$bb <- NULL
 final.df$cc <- NULL
 final.df$dd <- NULL
 
 ###parsing final data frame
-if(tolower(protein.coding) == "t"){
-  final.df$mismatch <- NULL
-  final.df$gapopen <- NULL
-  final.df$evalue <- NULL
-  final.df$qstart <- NULL
-  final.df$qend <- NULL
-  final.df$sticks <- NULL
-  final.df$pident <- NULL
-  final.df$loc <- NULL
-  print("Ordering data frame...")
-  order.highest <- data.frame(table(t(final.df$qseqid)))[order(data.frame(table(t(final.df$qseqid)))$Freq, decreasing = T),]$Var1
-  big.final <- data.frame()
-  for(f in order.highest){
-    print(f)
-    df <- final.df[final.df$qseqid == f,]
-    big.final <- rbind(df, big.final)
-  }
-  
-  big.final <- big.final[seq(dim(big.final)[1],1),]
-  names(big.final) <- c("gRNA.id","gene.id","gRNA.alignment.length", "gRNA.alignment.start",
-                        "gRNA.alignment.length", "bitscore", "aligned.sequence", "cigar.string", "total.mismatch.N",
-                        "mismatch.position", "validation", "gRNA.energy", "PAM.sequence", "GC.content")
-} else if (tolower(protein.coding) == "f") {
-  final.df$mismatch <- NULL
-  final.df$gapopen <- NULL
-  final.df$evalue <- NULL
-  final.df$qstart <- NULL
-  final.df$qend <- NULL
-  final.df$sticks <- NULL
-  final.df$pident <- NULL
-  final.df$coord <- paste(final.df$sseqid, ":", final.df$sstart, "-", final.df$send, sep = "")
-  final.df$sseqid <- NULL
-  final.df$sstart <- NULL
-  final.df$send <- NULL
-  final.df$sticks <- NULL
-  print("Ordering data frame...")
-  order.highest <- data.frame(table(t(final.df$qseqid)))[order(data.frame(table(t(final.df$qseqid)))$Freq, decreasing = T),]$Var1
-  big.final <- data.frame()
-  for(f in order.highest){
-    print(f)
-    df <- final.df[final.df$qseqid == f,]
-    big.final <- rbind(df, big.final)
-  }
-  big.final <- big.final[seq(dim(big.final)[1],1),]
-  names(big.final) <- c("gRNA.id","gRNA.alignment.length", "bitscore",
-                        "aligned.sequence", "cigar.string", "total.mismatch.N",
-                        "mismatch.position", "validation", "Locus", "gRNA.energy", "PAM.sequence", "GC.content", "Genome.cordinate")
+if(nchar(test.gene < 1)){
+    if(tolower(protein.coding) == "t"){
+      final.df$mismatch <- NULL
+      final.df$gapopen <- NULL
+      final.df$evalue <- NULL
+      final.df$qstart <- NULL
+      final.df$qend <- NULL
+      final.df$sticks <- NULL
+      final.df$pident <- NULL
+      final.df$loc <- NULL
+      print("Ordering data frame...")
+      order.highest <- data.frame(table(t(final.df$qseqid)))[order(data.frame(table(t(final.df$qseqid)))$Freq, decreasing = T),]$Var1
+      big.final <- data.frame()
+      for(f in order.highest){
+        print(f)
+        df <- final.df[final.df$qseqid == f,]
+        big.final <- rbind(df, big.final)
+      }
+      
+      big.final <- big.final[seq(dim(big.final)[1],1),]
+      names(big.final) <- c("gRNA.id","gene.id","gRNA.alignment.length", "gRNA.alignment.start",
+                            "gRNA.alignment.length", "bitscore", "aligned.sequence", "cigar.string", "total.mismatch.N",
+                            "mismatch.position", "validation", "gRNA.energy", "PAM.sequence", "GC.content")
+    } else if (tolower(protein.coding) == "f") {
+      final.df$mismatch <- NULL
+      final.df$gapopen <- NULL
+      final.df$evalue <- NULL
+      final.df$qstart <- NULL
+      final.df$qend <- NULL
+      final.df$sticks <- NULL
+      final.df$pident <- NULL
+      final.df$coord <- paste(final.df$sseqid, ":", final.df$sstart, "-", final.df$send, sep = "")
+      final.df$sseqid <- NULL
+      final.df$sstart <- NULL
+      final.df$send <- NULL
+      final.df$sticks <- NULL
+      print("Ordering data frame...")
+      order.highest <- data.frame(table(t(final.df$qseqid)))[order(data.frame(table(t(final.df$qseqid)))$Freq, decreasing = T),]$Var1
+      big.final <- data.frame()
+      for(f in order.highest){
+        print(f)
+        df <- final.df[final.df$qseqid == f,]
+        big.final <- rbind(df, big.final)
+      }
+      big.final <- big.final[seq(dim(big.final)[1],1),]
+      names(big.final) <- c("gRNA.id","gRNA.alignment.length", "bitscore",
+                            "aligned.sequence", "cigar.string", "total.mismatch.N",
+                            "mismatch.position", "validation", "Locus", "gRNA.energy", "PAM.sequence", "GC.content", "Genome.cordinate")
+    }
 }
-
 
 write.csv(big.final, paste(prefix, "-results.csv", sep = ""))
 stopCluster(cl = cl)
