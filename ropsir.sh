@@ -19,6 +19,7 @@ echo "-sm|--seed_mismatch - number of mismatches in seed region"
 echo "-nm|--non_seed_mismatch - number of mismatches in non-seed region"
 echo "-tg| --test_grna - read gRNA sequence and find targets for specified genome ang GTF"
 echo "-pc|--protein_coding_only - use only proteing-coding sequences if T, if F - use all genome (including intergenic) "
+
 banner ROPSIR
 
 ###Positional args parse
@@ -186,6 +187,7 @@ all_ngg_sequences_space=$curr_exec_dir/potential_ngg.fasta.parsed
 final_spacers=$curr_exec_dir/ngg.headers.fasta
 
 ###checking dependenciesт
+
 cpu_n=$(nproc)
 if [[ $cpu_n -lt 5 ]]
 	then
@@ -207,19 +209,6 @@ if [[ $is_blastn -eq 1 ]]
 		echo -e "Cannot found blastn in system! Install blastn: ${RED}sudo apt-get install ncbi-blast+${NC}"
 		exit 0
 	fi
-
-is_samtools=$(which samtools | wc -l)
-if [[ $is_samtools -eq 1 ]]
-        then
-                echo "samtools found!"
-        elif [[ $is_samtools -ge 1 ]]
-        then
-                echo "Multiple samtools versions found "
-        elif [[ $is_samtools -eq 0 ]]
-        then
-                echo -e "Cannot found samtools in system! Install samtools: ${RED}sudo apt-get install samtools${NC}"
-                exit 0
-        fi
 
 is_rlang=$(which Rscript | wc -l)
 if [[ $is_rlang -eq 1 ]]
@@ -300,7 +289,7 @@ if [[ ! -z "$test_grna" ]]
 		blastn -task 'blastn-short' -db $genome -query $testgrna_file -num_threads $threads -word_size $word_size -outfmt 6 -evalue 100 > blast.outfmt6
 		blastxmlparser --threads $threads -n 'hit.score, hsp.evalue, hsp.qseq, hsp.midline' blast.xml > blast.tsv
 		RNAfold $testgrna_file --noPS | grep ". (" | awk '{print $3}' | sed 's/)//' > energies.txt
-		./parse_tsv_single_gRNA.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch
+		$script_dir/./parse_tsv_single_gRNA.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch
 		echo "Done! Purging..."
 		rm blast.xml blast.tsv blast.outfmt6 energies.txt testgrna.fasta
 		ls *.csv | parallel 'ssconvert {} {.}.xls'

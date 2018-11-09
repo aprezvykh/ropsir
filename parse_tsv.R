@@ -181,7 +181,7 @@ if(tolower(protein.coding) == "t"){
   order.highest <- data.frame(table(t(final.df$qseqid)))[order(data.frame(table(t(final.df$qseqid)))$Freq, decreasing = T),]$Var1
   big.final <- data.frame()
   for(f in order.highest){
-#    print(f)
+    print(f)
     df <- final.df[final.df$qseqid == f,]
     big.final <- rbind(df, big.final)
   }
@@ -207,16 +207,17 @@ if(tolower(protein.coding) == "t"){
   order.highest <- data.frame(table(t(final.df$qseqid)))[order(data.frame(table(t(final.df$qseqid)))$Freq, decreasing = T),]$Var1
   big.final <- data.frame()
   for(f in order.highest){
-#    print(f)
+    print(f)
     df <- final.df[final.df$qseqid == f,]
     big.final <- rbind(df, big.final)
   }
   big.final <- big.final[seq(dim(big.final)[1],1),]
   names(big.final) <- c("gRNA.id","gRNA.alignment.length", "bitscore",
                         "aligned.sequence", "cigar.string", "total.mismatch.N",
-                        "mismatch.position", "validation", "gRNA.energy", "PAM.sequence", "GC.content")
+                        "mismatch.position", "validation", "Locus", "gRNA.energy", "PAM.sequence", "GC.content", "Genome.cordinate")
 }
 
 
 write.csv(big.final, paste(prefix, "-results.csv", sep = ""))
 stopCluster(cl = cl)
+

@@ -12,12 +12,6 @@ prefix <- args[8]
 threads <- args[9]
 
 ###
-
-dir <- c("~/git/ropsir/")
-gtf.path <- c("~/git/ropsir/data/genome.gtf")
-prefix <- c("sas")
-threads <- 32
-
 cl <- makeCluster(threads,type = "FORK")
 setwd(dir)
 
