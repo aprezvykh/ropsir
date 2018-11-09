@@ -111,8 +111,8 @@ done
 
 curr_exec_dir=$(pwd)
 script_dir=$(dirname $0 | tr -d '.')
-#echo $curr_exec_dir
-#echo $script_dir
+echo "Current data containing dir is $curr_exec_dir"
+echo "Script execution dir is $script_dir"
 
 ###testing if positional args missing
 
@@ -376,7 +376,7 @@ $script_dir/./parse_tsv.R $(pwd) $annotation_file $prefix $threads $seed_mismatc
 
 echo "Done! Purging..."
 
- rm $curr_exec_dir/blast.xml $curr_exec_dir/blast.tsv $curr_exec_dir/blast.outfmt6 $curr_exec_dir/energies.txt $curr_exec_dir/potential_dbg_ngg.fasta $curr_exec_dir/potential_ngg.fasta $curr_exec_dir/potential_ngg.fasta.parsed $curr_exec_dir/ngg.headers.fasta $script_dir/genome_cds.*
+rm $curr_exec_dir/blast.xml $curr_exec_dir/blast.tsv $curr_exec_dir/blast.outfmt6 $curr_exec_dir/energies.txt $curr_exec_dir/potential_dbg_ngg.fasta $curr_exec_dir/potential_ngg.fasta $curr_exec_dir/potential_ngg.fasta.parsed $curr_exec_dir/ngg.headers.fasta $script_dir/genome_cds.*
 
 echo "Converting to XLS! (ssconvert warning about X11 display is non-crucial, just skip it :) )"
 ls *.csv | parallel 'ssconvert {} {.}.xls'

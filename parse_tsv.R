@@ -21,6 +21,15 @@ test.gene <- args[13]
 seed.mismatch <- as.numeric(seed.mismatch)
 non.seed.mismatch <- as.numeric(non.seed.mismatch)
 
+print(paste("Current data dir is", dir, sep = " "))
+print(paste("GTF file is", gtf.path, sep = " "))
+print(paste("Threads number is", threads, sep = " "))
+print(paste("Seed mismatch number is", seed.mismatch, sep = " "))
+print(paste("Non-seed mismatch number is", non.seed.mismatch, sep = " "))
+print(paste("Protein coding is", protein.coding, sep = " "))
+print(paste("Tested gene name is", test.gene, sep = " "))
+
+
 #dir <- c("~/ropsir.TESTING/")
 #gtf.path <- c("~/git/ropsir/data/genome.gtf")
 #prefix <- c("gg")
@@ -28,7 +37,7 @@ non.seed.mismatch <- as.numeric(non.seed.mismatch)
 #seed.mismatch <- 2
 #non.seed.mismatch <- 4
 #protein.coding <- "F"
-#test.gene <- "YKL225W"
+#test.gene <- ""
 
 cl <- makeCluster(threads,type = "FORK")
 setwd(dir)
@@ -99,7 +108,13 @@ exit <- function() {
   .Internal(.invokeRestart(list(NULL, NULL), NULL))
 }
 
-if(nchar(test.gene > 1)){
+#exit()
+
+
+
+if(is.na(test.gene)){
+  gtf <- as.data.frame(import(gtf.path))
+} else if(nchar(test.gene) > 1){
   gtf <- as.data.frame(import(gtf.path))
   gtf <- gtf[gtf$gene_id == test.gene,]
   print(paste("Selected gene contains", nrow(gtf), "features!", sep = " "))
@@ -107,9 +122,8 @@ if(nchar(test.gene > 1)){
     warning("Cannot find gene in GTF file!")
     exit()
   }
-} else if(nchar(test.gene == 0)){
-  gtf <- as.data.frame(import(gtf.path))
 }
+
 gtf <- as.data.frame(import(gtf.path))
 fasta <- read.delim("ngg.headers.fasta", header = F)
 energies <- read.table("energies.txt", header = F)
@@ -174,7 +188,9 @@ for(f in unique(df$qseqid)){
 final.df <- final.df[grep("XXX$|XX$", final.df$recon.cigar, invert = T),]
 final.df$mm.pos <- gsub("-1", "0", final.df$mm.pos)
 
-if(nchar(test.gene) > 0){
+if(is.na(test.gene)){
+  final.df <- final.df
+} else if(nchar(test.gene) > 0){
   final.df <- final.df[final.df$loc == test.gene,]
   if(nrow(final.df) < 1){
     warning("0 gRNAs found for your gene!")
@@ -188,7 +204,7 @@ final.df$cc <- NULL
 final.df$dd <- NULL
 
 ###parsing final data frame
-if(nchar(test.gene < 1)){
+if(is.na(test.gene)){
     if(tolower(protein.coding) == "t"){
       final.df$mismatch <- NULL
       final.df$gapopen <- NULL

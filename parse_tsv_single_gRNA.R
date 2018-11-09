@@ -10,7 +10,12 @@ dir <- args[6]
 gtf.path <- args[7]
 prefix <- args[8]
 threads <- args[9]
+seed.mismatch <- args[10]
+non.seed.mismatch <- args[11]
+protein.coding <- args[12]
 
+seed.mismatch <- as.numeric(seed.mismatch)
+non.seed.mismatch <- as.numeric(non.seed.mismatch)
 ###
 cl <- makeCluster(threads,type = "FORK")
 setwd(dir)
@@ -33,9 +38,9 @@ get.mm.pos <- function(x){
 
 parse.mismatch.string <- function(x){
   cc.cp <- as.numeric(strsplit(x, ",")[[1]])
-  if(length(which(cc.cp < 10))>4){
+  if(length(which(cc.cp < 10)) > non.seed.mismatch){
     return("novalid")
-  } else if(length(which(cc.cp > 10))>2){
+  } else if(length(which(cc.cp > 10)) > seed.mismatch){
     return("novalid")
   } else {
     return("valid")
@@ -115,11 +120,14 @@ names(df) <- c("qseqid",
                "sticks")
 df$ee <- NULL
 
-
+mm.sum <- as.numeric(seed.mismatch + non.seed.mismatch)
 clusterExport(cl, "gtf")
 print("reconstructing cigar...")
 df$recon.cigar <- parApply(cl = cl, X = df, MARGIN = 1, FUN = reconstruct.cigar)
 df$recon.cigar <- gsub(" ", "X", df$recon.cigar)
+print("Counting mismatches...")
+df$total.mm <- unlist(lapply(df$recon.cigar, count.total.mismatches))
+df <- df[df$total.mm < mm.sum,]
 print("getting mismatch position...")
 df$mm.pos <- unlist(parLapply(cl = cl, X = df$recon.cigar,fun = get.mm.pos))
 print("parsing mismatch string...")
