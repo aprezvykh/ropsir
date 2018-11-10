@@ -1,5 +1,6 @@
 **ROPSIR**
-This software is made to find degenerate CRISPR-CAS9 gRNA targets in genome! <br/>
+This software is made to find degenerate CRISPR-CAS9 gRNA targets in genome. It was developed a software to test <br/>
+different modificated Cas9 types. Main aim of ropsir is  
 **Software requirements:** <br/>
 *Linux system* (tested in Ubuntu 16.04, kernel version 4.15.0-30-generic, 64 cores, 1TB RAM) <br/>
 *Multicore* (8+) <br/>
