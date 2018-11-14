@@ -17,7 +17,6 @@ seed.mismatch <- args[10]
 non.seed.mismatch <- args[11]
 protein.coding <- args[12]
 test.gene <- args[13]
-#top.grna <- args[14]
 
 seed.mismatch <- as.numeric(seed.mismatch)
 non.seed.mismatch <- as.numeric(non.seed.mismatch)
@@ -30,10 +29,11 @@ print(paste("Non-seed mismatch number is", non.seed.mismatch, sep = " "))
 print(paste("Protein coding is", protein.coding, sep = " "))
 print(paste("Tested gene name is", test.gene, sep = " "))
 
+
 #dir <- c("~/ropsir.TESTING/")
 #gtf.path <- c("~/git/ropsir/data/genome.gtf")
 #prefix <- c("gg")
-#threads <- 16
+#threads <- 32
 #seed.mismatch <- 2
 #non.seed.mismatch <- 4
 #protein.coding <- "F"
@@ -41,6 +41,8 @@ print(paste("Tested gene name is", test.gene, sep = " "))
 
 cl <- makeCluster(threads,type = "FORK")
 setwd(dir)
+
+print(paste("Using", threads, "threads!"))
 
 tab <- read.delim("blast.outfmt6",header = F,stringsAsFactors = F)
 pam <- read.delim("blast.tsv",header = F, stringsAsFactors = F)
@@ -102,21 +104,11 @@ get.loci <- function(x){
   return(paste(ret.gene[1]))
 }
 
-construct.final.df <- function(x){
-  sa <- df[df[["qseqid"]] == x,]
-  en <- energies[energies[["name"]] == x,]
-  sa[["energy"]] <- en[["val"]]
-  sa[["pam.fasta"]]<- spacer.seqs[spacer.seqs[["headers"]] == x,][["seqs"]]
-  sa <- data.frame(sa, stringsAsFactors = F)
-  sa[["gc.content"]] <- letter.freq(unique(as.character(sa[["pam"]])))
-  return(sa)
-}
-
-
 exit <- function() {
   .Internal(.invokeRestart(list(NULL, NULL), NULL))
 }
 
+#exit()
 
 if(is.na(test.gene)){
   gtf <- as.data.frame(import(gtf.path))
@@ -167,7 +159,7 @@ print("reconstructing cigar...")
 df$recon.cigar <- parApply(cl = cl, X = df, MARGIN = 1, FUN = reconstruct.cigar)
 df$recon.cigar <- gsub(" ", "X", df$recon.cigar)
 print("Counting mismatches...")
-df$total.mm <- unlist(parLapply(cl = cl, X = df$recon.cigar, fun = count.total.mismatches))
+df$total.mm <- unlist(lapply(df$recon.cigar, count.total.mismatches))
 df <- df[df$total.mm < mm.sum,]
 print("getting mismatch position...")
 df$mm.pos <- unlist(parLapply(cl = cl, X = df$recon.cigar,fun = get.mm.pos))
@@ -177,12 +169,19 @@ print("parsing annotation file. This can take a while...")
 df$loc <- parApply(cl = cl, X = df, MARGIN = 1, FUN = get.loci)
 print("Constructing final data frame!")
 
-grna.ids <- unique(df[["qseqid"]])
+final.df <- data.frame()
 
-clusterExport(cl,varlist = list("df", "grna.ids", "energies", "spacer.seqs", "letter.freq"))
-ll <- parLapply(cl = cl, X = grna.ids, fun = construct.final.df)
-
-final.df <- data.frame(do.call("rbind", ll))
+for(f in unique(df$qseqid)){
+#  print(f)
+  sa <- df[df$qseqid == f,]
+  en <- energies[energies$name == f,]
+  en$val
+  sa$energy <- en$val
+  sa$pam.fasta <- spacer.seqs[spacer.seqs$headers == f,]$seqs
+  sa <- data.frame(sa, stringsAsFactors = F)
+  sa$gc.content <- letter.freq(unique(as.character(sa$pam.fasta)))
+  final.df <- rbind(sa, final.df)
+}
 
 final.df <- final.df[grep("XXX$|XX$", final.df$recon.cigar, invert = T),]
 final.df$mm.pos <- gsub("-1", "0", final.df$mm.pos)

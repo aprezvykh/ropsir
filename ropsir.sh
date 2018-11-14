@@ -1,26 +1,29 @@
 #!/bin/bash
 RED='\033[0;31m'
 NC='\033[0m'
-echo "This script is used to found degenerate gRNA in CRISPR-Cas9 system"
-echo "Developed by Alexander Rezvykh, aprezvykh@yandex.ru"
-echo "______________________________________________________________________________________________________________________________"
-echo "Arguments:"
-echo "-g|--genome_fasta (filepath) - genome file in FASTA file"
-echo "-s|--spacer_length (integer) - length of a spacer sequence exclude PAM site (20, for example)"
-echo "-u|--unallowed_spacer_string (character) - sequence that not allowed in spacer sequence (TTT, for example)"
-echo "-p|--unallowed_pam_end (character) - PAM sequence, that unallowed (AA, for example)"
-echo "-t|--number_of_threads (integer) - threads number"
-echo "-w|--word_size (integer) - size of the word in blast (increasing word size will increase number of short and gapped alignments) "
-echo "-a|--annotation_file (filepath) - annotation file in GTF format"
-echo "-d|--debug (logical, T/F) - uses only first 10 PAM sequences "
-echo "-pr|-prefix (will be used in final result file)"
-echo "-k|--keep_all_files - used for debug. Do not delete all supplementary files"
-echo "-sm|--seed_mismatch - number of mismatches in seed region"
-echo "-nm|--non_seed_mismatch - number of mismatches in non-seed region"
-echo "-tg| --test_grna - read gRNA sequence and find targets for specified genome ang GTF"
-echo "-ts --test_gene - test gRNA (single or multiple) versus specific gene. Gene name should correspond to gene_id column in GTF file!"
-echo "-pc|--protein_coding_only - use only proteing-coding sequences if T, if F - use all genome (including intergenic) "
 
+#echo "This script is used to found degenerate gRNA in CRISPR-Cas9 system"
+#echo "Developed by Alexander Rezvykh, aprezvykh@yandex.ru"
+#echo "______________________________________________________________________________________________________________________________"
+#echo "Arguments:"
+#echo "-g|--genome_fasta (filepath) - genome file in FASTA file"
+#echo "-s|--spacer_length (integer) - length of a spacer sequence exclude PAM site (20, for example)"
+#echo "-u|--unallowed_spacer_string (character) - sequence that not allowed in spacer sequence (TTT, for example)"
+#echo "-p|--unallowed_pam_end (character) - PAM sequence, that unallowed (AA, for example)"
+#echo "-t|--number_of_threads (integer) - threads number"
+#echo "-w|--word_size (integer) - size of the word in blast (increasing word size will increase number of short and gapped alignments) "
+#echo "-a|--annotation_file (filepath) - annotation file in GTF format"
+#echo "-d|--debug (logical, T/F) - uses only first 10 PAM sequences "
+#echo "-pr|-prefix (will be used in final result file)"
+#echo "-k|--keep_all_files - used for debug. Do not delete all supplementary files"
+#echo "-sm|--seed_mismatch - number of mismatches in seed region"
+#echo "-nm|--non_seed_mismatch - number of mismatches in non-seed region"
+#echo "-tg| --test_grna - read gRNA sequence and find targets for specified genome ang GTF"
+#echo "-ts --test_gene - test gRNA (single or multiple) versus specific gene. Gene name should correspond to gene_id column in GTF file!"
+#echo "-pc|--protein_coding_only - use only proteing-coding sequences if T, if F - use all genome (including intergenic) "
+#echo "-o|--paralogs - search for paralogs?"
+#echo "-h|--help - display help message and exit"
+#
 banner ROPSIR
 
 ###Positional args parse
@@ -105,16 +108,53 @@ case $key in
     shift
     shift
     ;;
+    -h|--help)
+    help="$2"
+    shift
+    shift
+    ;;
+    -top|--top_gnra)
+    top_grna="$2"
+    shift
+    shift
+    ;;
 
 esac
 done
+curr_exec_dir=$(readlink -e $(pwd))
+script_dir=$(readlink -e $(dirname $0))
 
-curr_exec_dir=$(pwd)
-script_dir=$(dirname $0 | tr -d '.')
 echo "Current data containing dir is $curr_exec_dir"
 echo "Script execution dir is $script_dir"
 
 ###testing if positional args missing
+
+if [[ ! -z "$help" ]]
+        then
+                echo "This script is used to found degenerate gRNA in CRISPR-Cas9 system"
+		echo "Developed by Alexander Rezvykh, aprezvykh@yandex.ru"
+		echo "______________________________________________________________________________________________________________________________"
+		echo "Arguments:"
+		echo "-g|--genome_fasta (filepath) - genome file in FASTA file"
+		echo "-s|--spacer_length (integer) - length of a spacer sequence exclude PAM site (20, for example)"
+		echo "-u|--unallowed_spacer_string (character) - sequence that not allowed in spacer sequence (TTT, for example)"
+		echo "-p|--unallowed_pam_end (character) - PAM sequence, that unallowed (AA, for example)"
+		echo "-t|--number_of_threads (integer) - threads number"
+		echo "-w|--word_size (integer) - size of the word in blast (increasing word size will increase number of short and gapped alignments)"
+		echo "-a|--annotation_file (filepath) - annotation file in GTF format"
+		echo "-d|--debug (logical, T/F) - uses only first 10 PAM sequences "
+		echo "-pr|-prefix (will be used in final result file)"
+		echo "-k|--keep_all_files - used for debug. Do not delete all supplementary files"
+		echo "-sm|--seed_mismatch - number of mismatches in seed region"
+		echo "-nm|--non_seed_mismatch - number of mismatches in non-seed region"
+		echo "-tg| --test_grna - read gRNA sequence and find targets for specified genome ang GTF"
+		echo "-ts --test_gene - test gRNA (single or multiple) versus specific gene. Gene name should correspond to gene_id column in GTF file"
+		echo "-pc|--protein_coding_only - use only proteing-coding sequences if T, if F - use all genome (including intergenic) "
+		echo "-o|--paralogs - search for paralogs?"
+		echo "-h|--help - display help message and exit"
+		echo "-top|--top_grna How many top-gRNAs should be shown? if 0, will be displayed all (it can crush your excel:)"
+                exit 0
+        fi
 
 if [[ -z "$genome" ]]
 	then
@@ -177,6 +217,11 @@ if [[ -z "$non_seed_mismatch"  ]]
                 non_seed_mismatch=4
         fi
 
+if [[ -z "$top_grna"  ]]
+        then
+                echo "Sorting of final list was not specified! Setting default"
+                top_grna=0
+        fi
 
 set -- "${POSITIONAL[@]}" # restore positional parameters
 
@@ -192,7 +237,7 @@ all_ngg_sequences_dbg=$curr_exec_dir/potential_dbg_ngg.fasta
 all_ngg_sequences_space=$curr_exec_dir/potential_ngg.fasta.parsed
 final_spacers=$curr_exec_dir/ngg.headers.fasta
 
-###checking dependenciesт
+###checking dependencies
 
 cpu_n=$(nproc)
 if [[ $cpu_n -lt 5 ]]
@@ -291,11 +336,11 @@ if [[ ! -z "$test_grna" ]]
 		echo "Aligning spacer seqiences to reference genome! Evaluating XML blast output"
 		echo "XML blast"
 		blastn -task 'blastn-short' -db $genome -query $testgrna_file -num_threads $threads -word_size $word_size -outfmt 5 -evalue 100 > blast.xml
-		echo "tabular BLAST"
-		blastn -task 'blastn-short' -db $genome -query $testgrna_file -num_threads $threads -word_size $word_size -outfmt 6 -evalue 100 > blast.outfmt6
+		echo "Converting XML to tabular..."
+		$script_dir/./blastxml_to_tabular.py blast.xml > blast.outfmt6
 		blastxmlparser --threads $threads -n 'hit.score, hsp.evalue, hsp.qseq, hsp.midline' blast.xml > blast.tsv
 		RNAfold $testgrna_file --noPS | grep ". (" | awk '{print $3}' | sed 's/)//' > energies.txt
-		$script_dir/./parse_tsv_single_gRNA.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch
+		$script_dir/./parse_tsv_single_gRNA.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch $protein_coding
 		echo "Done! Purging..."
 		rm blast.xml blast.tsv blast.outfmt6 energies.txt testgrna.fasta
 		ls *.csv | parallel 'ssconvert {} {.}.xls'
@@ -308,7 +353,6 @@ echo "Regular expression used in search is $spacer_regexp"
 cat $genome | grep -oh "$spacer_regexp.[AG][AG]" | grep -v "$unallowed_spacer_string" | grep -v "$unallowed_pam_end$" > $all_ngg_sequences
 
 ngg_length=$(cat $all_ngg_sequences | wc -l)
-
 echo "Genome size is $genome_size"
 
 if [[ $ngg_length -eq 0 ]]
@@ -325,7 +369,7 @@ if [[ $ngg_length -eq 0 ]]
 if [ $debug = "T" ] || [ $debug = "t" ]
 	then
 		echo "Debug mode is true, cutting $all_ngg_sequences"
-		head -n 60 $all_ngg_sequences > $all_ngg_sequences_dbg
+		head -n 3000 $all_ngg_sequences > $all_ngg_sequences_dbg
 	elif [[ $debug -eq "F" ]]
 		then
 			echo "Debug mod off! Do nothing!"
@@ -360,11 +404,10 @@ if [[ $is_blastdb -eq 0 ]]
 echo "Aligning spacer seqiences to reference genome! Evaluating XML blast output"
 echo "XML blast"
 blastn -task 'blastn-short' -db $genome -query $final_spacers -num_threads $threads -word_size $word_size -outfmt 5 -evalue 100 > blast.xml
-echo "tabular blast"
-blastn -task 'blastn-short' -db $genome -query $final_spacers -num_threads $threads -word_size $word_size -outfmt 6 -evalue 100 > blast.outfmt6
+echo "Converting XML to tabular..."
+$script_dir/./blastxml_to_tabular.py blast.xml > blast.outfmt6
 echo "Evaluating XML parser"
 blastxmlparser --threads $threads -n 'hit.score, hsp.evalue, hsp.qseq, hsp.midline' blast.xml > blast.tsv
-
 blastn_x=$(cat blast.tsv | wc -l)
 blast_f=$(cat blast.outfmt6 | wc -l)
 
@@ -372,7 +415,8 @@ echo "Executing RNAfold!"
 RNAfold $final_spacers --noPS | grep "\\." | sed 's/[^ ]* //' | sed 's/)//' | sed 's/(//' > energies.txt
 
 echo "Executing final R script!"
-$script_dir/./parse_tsv.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch $protein_coding_only $test_gene
+
+$script_dir/./parse_tsv.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch $protein_coding_only $test_gene 
 
 echo "Done! Purging..."
 

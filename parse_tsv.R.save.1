@@ -30,14 +30,15 @@ print(paste("Non-seed mismatch number is", non.seed.mismatch, sep = " "))
 print(paste("Protein coding is", protein.coding, sep = " "))
 print(paste("Tested gene name is", test.gene, sep = " "))
 
-#dir <- c("~/ropsir.TESTING/")
-#gtf.path <- c("~/git/ropsir/data/genome.gtf")
-#prefix <- c("gg")
-#threads <- 16
-#seed.mismatch <- 2
-#non.seed.mismatch <- 4
-#protein.coding <- "F"
-#test.gene <- ""
+
+dir <- c("~/ropsir.TESTING/")
+gtf.path <- c("~/git/ropsir/data/genome.gtf")
+prefix <- c("gg")
+threads <- 32
+seed.mismatch <- 2
+non.seed.mismatch <- 4
+protein.coding <- "F"
+test.gene <- ""
 
 cl <- makeCluster(threads,type = "FORK")
 setwd(dir)
@@ -177,11 +178,7 @@ print("parsing annotation file. This can take a while...")
 df$loc <- parApply(cl = cl, X = df, MARGIN = 1, FUN = get.loci)
 print("Constructing final data frame!")
 
-grna.ids <- unique(df[["qseqid"]])
-
-clusterExport(cl,varlist = list("df", "grna.ids", "energies", "spacer.seqs", "letter.freq"))
-ll <- parLapply(cl = cl, X = grna.ids, fun = construct.final.df)
-
+ll <- lapply(unique(df[["qseqid"]]), construct.final.df)
 final.df <- data.frame(do.call("rbind", ll))
 
 final.df <- final.df[grep("XXX$|XX$", final.df$recon.cigar, invert = T),]
