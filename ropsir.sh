@@ -223,6 +223,13 @@ if [[ -z "$top_grna"  ]]
                 top_grna=0
         fi
 
+if [[ -z "$word_size"  ]]
+        then
+                echo "Sorting of final list was not specified! Setting default"
+                word_size=10
+        fi
+
+
 set -- "${POSITIONAL[@]}" # restore positional parameters
 
 echo GENOME FILE IS SET TO = "${genome}"
@@ -274,6 +281,26 @@ if [[ $is_rlang -eq 1 ]]
                 exit 0
         fi
 
+is_ruby=$(which ruby | wc -l)
+if [[ $is_ruby -eq 1 ]]
+        then
+                echo "!Ruby found!"
+        elif [[ $is_blast2bam -eq 0 ]]
+        then
+                echo -e "Cannot found ruby in system! It is required to install blastxmlparser. Install ruby ${RED}sudo apt-get instal ruby ruby-dev${NC}"
+                exit 0
+        fi
+
+is_gem=$(which gem | wc -l)
+if [[ $is_gem -eq 1 ]]
+        then
+                echo "Gem found!"
+        elif [[ $is_blast2bam -eq 0 ]]
+        then
+                echo -e "Cannot found gem in system! It is required to install gem. Install ruby ${RED}sudo apt-get instal gem${NC}"
+                exit 0
+        fi
+
 is_blast2bam=$(which blastxmlparser | wc -l)
 if [[ $is_blast2bam -eq 1 ]]
         then
@@ -289,8 +316,8 @@ if  [[ $is_rnafold -eq 1 ]]
 	then
 		echo "RNAfold found"
 	else
-		echo "RNAfold not found! Install RNAfold: ${RED}sudo apt-get install rnafold${NC}"
-
+		echo "RNAfold not found! Install RNAfold: ${RED}sudo apt-add-repository ppa:j-4/vienna-rna; sudo apt-get update; sudo apt-get install vienna-rna${NC}"
+		exit 0
 	fi
 
 is_ssconvert=$(which ssconvert | wc -l)
@@ -299,6 +326,7 @@ if  [[ $is_rnafold -eq 1 ]]
                 echo "ssconvert found"
         else
                 echo "ssconvert not found! Install RNAfold: ${RED}sudo apt-get install ssconvert${NC}"
+		exit 0
 
         fi
 
@@ -369,7 +397,7 @@ if [[ $ngg_length -eq 0 ]]
 if [ $debug = "T" ] || [ $debug = "t" ]
 	then
 		echo "Debug mode is true, cutting $all_ngg_sequences"
-		head -n 3000 $all_ngg_sequences > $all_ngg_sequences_dbg
+		head -n 50 $all_ngg_sequences > $all_ngg_sequences_dbg
 	elif [[ $debug -eq "F" ]]
 		then
 			echo "Debug mod off! Do nothing!"
