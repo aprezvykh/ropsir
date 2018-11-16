@@ -36,8 +36,8 @@ print(paste("Tested gene name is", test.gene, sep = " "))
 #threads <- 16
 #seed.mismatch <- 2
 #non.seed.mismatch <- 4
-#protein.coding <- "F"
-#test.gene <- ""
+#protein.coding <- "T"
+#test.gene <- "YHL046C"
 
 cl <- makeCluster(threads,type = "FORK")
 setwd(dir)
@@ -188,14 +188,15 @@ final.df <- final.df[grep("XXX$|XX$", final.df$recon.cigar, invert = T),]
 final.df$mm.pos <- gsub("-1", "0", final.df$mm.pos)
 
 if(is.na(test.gene)){
-  final.df <- final.df
-} else if(nchar(test.gene) > 0){
-  final.df <- final.df[final.df$loc == test.gene,]
+  big.final <- final.df
+} else if (nchar(test.gene) > 0){
+  big.final <- final.df[final.df$sseqid == test.gene,]
   if(nrow(final.df) < 1){
     warning("0 gRNAs found for your gene!")
   }
   print(paste(nrow(final.df), "gRNAs found for your gene!", sep = " "))
 } 
+
 
 final.df$aa <- NULL
 final.df$bb <- NULL

@@ -196,7 +196,7 @@ if [[ -z "$unallowed_pam_end" ]]
 if [[ -z "$threads"  ]]
 	then
 		echo "Threads variable not set! Setting default (nproc output)"
-		threads= $( $(nproc) / 2)
+		threads=$( $(nproc) / 2)
 	fi
 
 if [[ -z "$word_size"  ]]
@@ -228,7 +228,6 @@ if [[ -z "$word_size"  ]]
                 echo "Sorting of final list was not specified! Setting default"
                 word_size=10
         fi
-
 
 set -- "${POSITIONAL[@]}" # restore positional parameters
 
@@ -397,7 +396,7 @@ if [[ $ngg_length -eq 0 ]]
 if [ $debug = "T" ] || [ $debug = "t" ]
 	then
 		echo "Debug mode is true, cutting $all_ngg_sequences"
-		head -n 50 $all_ngg_sequences > $all_ngg_sequences_dbg
+		head -n 500 $all_ngg_sequences > $all_ngg_sequences_dbg
 	elif [[ $debug -eq "F" ]]
 		then
 			echo "Debug mod off! Do nothing!"
@@ -443,7 +442,6 @@ echo "Executing RNAfold!"
 RNAfold $final_spacers --noPS | grep "\\." | sed 's/[^ ]* //' | sed 's/)//' | sed 's/(//' > energies.txt
 
 echo "Executing final R script!"
-
 $script_dir/./parse_tsv.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch $protein_coding_only $test_gene 
 
 echo "Done! Purging..."
