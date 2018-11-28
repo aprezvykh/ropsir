@@ -17,18 +17,20 @@ seed.mismatch <- args[10]
 non.seed.mismatch <- args[11]
 protein.coding <- args[12]
 test.gene <- args[13]
-#top.grna <- args[14]
+files.dir <- args[14]
+ropsir.dir <- args[15]
+
 
 seed.mismatch <- as.numeric(seed.mismatch)
 non.seed.mismatch <- as.numeric(non.seed.mismatch)
 
-print(paste("Current data dir is", dir, sep = " "))
-print(paste("GTF file is", gtf.path, sep = " "))
-print(paste("Threads number is", threads, sep = " "))
-print(paste("Seed mismatch number is", seed.mismatch, sep = " "))
-print(paste("Non-seed mismatch number is", non.seed.mismatch, sep = " "))
-print(paste("Protein coding is", protein.coding, sep = " "))
-print(paste("Tested gene name is", test.gene, sep = " "))
+cat(paste("Current data dir is", dir, sep = " "),sep = "\n")
+cat(paste("GTF file is", gtf.path, sep = " "),sep = "\n")
+cat(paste("Threads number is", threads, sep = " "),sep = "\n")
+cat(paste("Seed mismatch number is", seed.mismatch, sep = " "),sep = "\n")
+cat(paste("Non-seed mismatch number is", non.seed.mismatch, sep = " "),sep = "\n")
+cat(paste("Protein coding is", protein.coding, sep = " "),sep = "\n")
+cat(paste("Tested gene name is", test.gene, sep = " "),sep = "\n")
 
 #dir <- c("~/ropsir.TESTING/")
 #gtf.path <- c("~/git/ropsir/data/genome.gtf")
@@ -118,14 +120,15 @@ exit <- function() {
 }
 
 
-if(is.na(test.gene)){
+if(identical(test.gene, "nogene")){
   gtf <- as.data.frame(import(gtf.path))
-} else if(nchar(test.gene) > 1){
+} else if(nchar(test.gene) > 3){
   gtf <- as.data.frame(import(gtf.path))
-  gtf <- gtf[gtf$gene_id == test.gene,]
-  print(paste("Selected gene contains", nrow(gtf), "features!", sep = " "))
-  if(nrow(gtf) < 1){
+  gtf.sub <- gtf[gtf$gene_id == test.gene,]
+  cat(paste("Selected gene contains", nrow(gtf.sub), "features!", sep = " "), sep = "\n")
+  if(nrow(gtf.sub) < 1){
     warning("Cannot find gene in GTF file!")
+    cat(paste("Check your gene identifyer format! It should be like:", head(unique(gtf$gene_id),5), sep = ""),sep = "\n")
     exit()
   }
 }
@@ -163,19 +166,19 @@ df$ee <- NULL
 
 mm.sum <- as.numeric(seed.mismatch + non.seed.mismatch)
 clusterExport(cl, "gtf")
-print("reconstructing cigar...")
+cat("reconstructing cigar...", sep = "\n")
 df$recon.cigar <- parApply(cl = cl, X = df, MARGIN = 1, FUN = reconstruct.cigar)
 df$recon.cigar <- gsub(" ", "X", df$recon.cigar)
-print("Counting mismatches...")
+cat("Counting mismatches...", sep = "\n")
 df$total.mm <- unlist(parLapply(cl = cl, X = df$recon.cigar, fun = count.total.mismatches))
 df <- df[df$total.mm < mm.sum,]
-print("getting mismatch position...")
+cat("getting mismatch position...", sep = "\n")
 df$mm.pos <- unlist(parLapply(cl = cl, X = df$recon.cigar,fun = get.mm.pos))
-print("parsing mismatch string...")
+cat("parsing mismatch string...", sep = "\n")
 df$val <- unlist(parLapply(cl = cl, X = df$mm.pos, fun = parse.mismatch.string))
-print("parsing annotation file. This can take a while...")
+cat("parsing annotation file. This can take a while...", sep = "\n")
 df$loc <- parApply(cl = cl, X = df, MARGIN = 1, FUN = get.loci)
-print("Constructing final data frame!")
+cat("Constructing final data frame!", sep = "\n")
 
 grna.ids <- unique(df[["qseqid"]])
 
@@ -187,14 +190,14 @@ final.df <- data.frame(do.call("rbind", ll))
 final.df <- final.df[grep("XXX$|XX$", final.df$recon.cigar, invert = T),]
 final.df$mm.pos <- gsub("-1", "0", final.df$mm.pos)
 
-if(is.na(test.gene)){
+if(identical(test.gene, "nogene")){
   big.final <- final.df
 } else if (nchar(test.gene) > 0){
   big.final <- final.df[final.df$sseqid == test.gene,]
   if(nrow(final.df) < 1){
     warning("0 gRNAs found for your gene!")
   }
-  print(paste(nrow(final.df), "gRNAs found for your gene!", sep = " "))
+  cat(paste(nrow(final.df), "gRNAs found for your gene!", sep = " "),sep = "\n")
 } 
 
 
@@ -204,7 +207,7 @@ final.df$cc <- NULL
 final.df$dd <- NULL
 
 ###parsing final data frame
-if(is.na(test.gene)){
+if(identical(test.gene, "nogene")){
     if(tolower(protein.coding) == "t"){
       final.df$mismatch <- NULL
       final.df$gapopen <- NULL
@@ -214,11 +217,11 @@ if(is.na(test.gene)){
       final.df$sticks <- NULL
       final.df$pident <- NULL
       final.df$loc <- NULL
-      print("Ordering data frame...")
+      cat("Ordering data frame...", sep = "\n")
       order.highest <- data.frame(table(t(final.df$qseqid)))[order(data.frame(table(t(final.df$qseqid)))$Freq, decreasing = T),]$Var1
       big.final <- data.frame()
       for(f in order.highest){
-        print(f)
+        cat(f, sep = "\n")
         df <- final.df[final.df$qseqid == f,]
         big.final <- rbind(df, big.final)
       }
@@ -240,11 +243,11 @@ if(is.na(test.gene)){
       final.df$sstart <- NULL
       final.df$send <- NULL
       final.df$sticks <- NULL
-      print("Ordering data frame...")
+      cat("Ordering data frame...", sep = "\n")
       order.highest <- data.frame(table(t(final.df$qseqid)))[order(data.frame(table(t(final.df$qseqid)))$Freq, decreasing = T),]$Var1
       big.final <- data.frame()
       for(f in order.highest){
-        print(f)
+        cat(f, sep = "\n")
         df <- final.df[final.df$qseqid == f,]
         big.final <- rbind(df, big.final)
       }
@@ -254,7 +257,11 @@ if(is.na(test.gene)){
                             "mismatch.position", "validation", "Locus", "gRNA.energy", "PAM.sequence", "GC.content", "Genome.cordinate")
     }
 }
-
 write.csv(big.final, paste(prefix, "-results.csv", sep = ""))
-stopCluster(cl = cl)
+big.final.for.html <- big.final
+big.final.for.html[,1] <- NULL
+write.table(big.final.for.html, paste(prefix, "-results.tsv", sep = ""),quote = F,sep = "\t")
 
+#cat(paste("perl ", ropsir.dir, "/csv2html.pl ", files.dir, " > ", prefix, "results.html", sep = ""), sep = "\n")
+system(paste("perl ", ropsir.dir, "/csv2html.pl ", files.dir, "/", prefix, "-results.tsv", " > ", prefix, "-results.html", sep = ""))
+stopCluster(cl = cl)

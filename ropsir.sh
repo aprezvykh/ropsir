@@ -23,11 +23,8 @@ NC='\033[0m'
 #echo "-pc|--protein_coding_only - use only proteing-coding sequences if T, if F - use all genome (including intergenic) "
 #echo "-o|--paralogs - search for paralogs?"
 #echo "-h|--help - display help message and exit"
-#
+
 banner ROPSIR
-
-###Positional args parse
-
 POSITIONAL=()
 while [[ $# -gt 0 ]]
 do
@@ -105,6 +102,11 @@ case $key in
     ;;
     -ts|--test_gene)
     test_gene="$2"
+    shift
+    shift
+    ;;
+    -o|--paralogs)
+    paralogs="$2"
     shift
     shift
     ;;
@@ -225,8 +227,14 @@ if [[ -z "$top_grna"  ]]
 
 if [[ -z "$word_size"  ]]
         then
-                echo "Sorting of final list was not specified! Setting default"
+                echo "Setting default word size (10)"
                 word_size=10
+        fi
+
+if [[ -z "$test_gene"  ]]
+        then
+                echo "Sorting of final list was not specified! Setting default"
+                test_gene="nogene"
         fi
 
 set -- "${POSITIONAL[@]}" # restore positional parameters
@@ -284,9 +292,19 @@ is_ruby=$(which ruby | wc -l)
 if [[ $is_ruby -eq 1 ]]
         then
                 echo "!Ruby found!"
-        elif [[ $is_blast2bam -eq 0 ]]
+        elif [[ $is_ruby -eq 0 ]]
         then
                 echo -e "Cannot found ruby in system! It is required to install blastxmlparser. Install ruby ${RED}sudo apt-get instal ruby ruby-dev${NC}"
+                exit 0
+        fi
+
+is_samtools=$(which samtools | wc -l)
+if [[ $is_samtools -eq 1 ]]
+        then
+                echo "samtools found!"
+        elif [[ $is_samtools -eq 0 ]]
+        then
+                echo -e "Cannot found samtools in system! Install: sudo apt-get install samtools"
                 exit 0
         fi
 
@@ -315,34 +333,66 @@ if  [[ $is_rnafold -eq 1 ]]
 	then
 		echo "RNAfold found"
 	else
-		echo "RNAfold not found! Install RNAfold: ${RED}sudo apt-add-repository ppa:j-4/vienna-rna; sudo apt-get update; sudo apt-get install vienna-rna${NC}"
+ 		echo "RNAfold not found! Install RNAfold: ${RED}sudo apt-add-repository ppa:j-4/vienna-rna; sudo apt-get update; sudo apt-get install vienna-rna${NC}"
 		exit 0
 	fi
 
 is_ssconvert=$(which ssconvert | wc -l)
-if  [[ $is_rnafold -eq 1 ]]
+if  [[ $is_ssconvert -eq 1 ]]
         then
                 echo "ssconvert found"
         else
-                echo "ssconvert not found! Install RNAfold: ${RED}sudo apt-get install ssconvert${NC}"
-		exit 0
-
+                echo "ssconvert not found! Results will be outputted in CSV format"
         fi
 
 
 genome_size=$(cat $genome | wc | awk '{print $3-$1}')
 spacer_regexp=$(yes '.' | head -n $spacer_length | tr -d '\n')
 
-if [ $protein_coding_only = "T" ] || [ $protein_coding_only = "t" ]
+if [ $protein_coding_only = "T" ] || [ $protein_coding_only = "t" ];
 	then
 		echo "Using only protein-coding sequences!"
 		genome_cds=$curr_exec_dir/genome_cds.fasta
 		gffread -w $genome_cds -W -O -E -L -F -g $genome $annotation_file
+		samtools faidx $genome_cds
 		genome=$genome_cds
-	elif [ $protein_coding_only = "F" ] || [ $protein_coding_only = "F" ]
-		then
-			echo "Using all genome!"
 fi
+
+
+if [ $paralogs = "T" ] || [ $paralogs = "t" ];
+	then
+		echo "Paralogs search executing!"
+		samtools faidx $genome $test_gene > $test_gene.fasta
+		int_gene_len=$(cat $test_gene.fasta | wc -l)
+		if [[ int_gene_len -eq 1 ]];
+			then
+				echo "Cannot find gene in sequence! Check identifyer!"
+				rm $test_gene.fasta
+				exit 0
+		fi
+		echo "Creating CDS BLAST database..."
+		makeblastdb -in $genome -dbtype nucl
+		blastn -db $genome -query $test_gene.fasta -num_threads $threads -outfmt 6 > paralogs.outfmt6
+		paralog_n_raw=$(cat paralogs.outfmt6 | wc -l)
+		paralog_n_parsed=$(expr $paralog_n_raw - 1)
+		if [[ $paralog_n_parsed -eq 0 ]];
+			then
+				echo "Cannot find paralogs for gene! Exitting!" 
+				exit 0
+			else
+				echo "$paralog_n_parsed paralogs has been found for $test_gene!"
+		fi
+		echo "Extracting paralog sequences!"
+		for f in `seq 1 $paralog_n_raw`;
+			do
+				echo $f
+				curr_paralog=$(cat paralogs.outfmt6 | cut -f2 | head -$f | tail -1)
+				echo $curr_paralog
+				samtools faidx $genome $curr_paralog >> paralogs.fasta
+			done
+fi
+exit 0
+
 
 if [[ ! -z "$test_grna" ]]
 	then
@@ -396,7 +446,7 @@ if [[ $ngg_length -eq 0 ]]
 if [ $debug = "T" ] || [ $debug = "t" ]
 	then
 		echo "Debug mode is true, cutting $all_ngg_sequences"
-		head -n 500 $all_ngg_sequences > $all_ngg_sequences_dbg
+		head -n 50 $all_ngg_sequences > $all_ngg_sequences_dbg
 	elif [[ $debug -eq "F" ]]
 		then
 			echo "Debug mod off! Do nothing!"
@@ -442,11 +492,16 @@ echo "Executing RNAfold!"
 RNAfold $final_spacers --noPS | grep "\\." | sed 's/[^ ]* //' | sed 's/)//' | sed 's/(//' > energies.txt
 
 echo "Executing final R script!"
-$script_dir/./parse_tsv.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch $protein_coding_only $test_gene 
+echo "$script_dir/./parse_tsv.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch $protein_coding_only $test_gene $curr_exec_dir $script_dir"
+$script_dir/./parse_tsv.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch $protein_coding_only $test_gene $curr_exec_dir $script_dir
 
 echo "Done! Purging..."
 
-rm $curr_exec_dir/blast.xml $curr_exec_dir/blast.tsv $curr_exec_dir/blast.outfmt6 $curr_exec_dir/energies.txt $curr_exec_dir/potential_dbg_ngg.fasta $curr_exec_dir/potential_ngg.fasta $curr_exec_dir/potential_ngg.fasta.parsed $curr_exec_dir/ngg.headers.fasta $script_dir/genome_cds.*
+rm $curr_exec_dir/blast.xml $curr_exec_dir/blast.tsv $curr_exec_dir/blast.outfmt6 $curr_exec_dir/energies.txt $curr_exec_dir/potential_dbg_ngg.fasta $curr_exec_dir/potential_ngg.fasta $curr_exec_dir/potential_ngg.fasta.parsed $curr_exec_dir/ngg.headers.fasta $curr_exec_dir/genome_cds.*
+
 
 echo "Converting to XLS! (ssconvert warning about X11 display is non-crucial, just skip it :) )"
-ls *.csv | parallel 'ssconvert {} {.}.xls'
+if [[ $is_ssconvert -eq 1 ]]
+	then
+		ls *.csv | parallel 'ssconvert {} {.}.xls'
+fi
