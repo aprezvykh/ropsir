@@ -14,6 +14,17 @@ seed.mismatch <- args[10]
 non.seed.mismatch <- args[11]
 protein.coding <- args[12]
 
+#dir <- "~/ropsir.TESTING/"
+#gtf.path <- "~/git/ropsir/data/genome.gtf"
+#prefix <- "sas"
+#threads <- 32
+#seed.mismatch <- 2
+#non.seed.mismatch <- 4
+#protein.coding <- "T"
+
+
+
+
 seed.mismatch <- as.numeric(seed.mismatch)
 non.seed.mismatch <- as.numeric(non.seed.mismatch)
 ###
@@ -69,13 +80,12 @@ count.total.mismatches <- function(x){
   str_count(x,pattern = "X")
 }
 
-
 get.loci <- function(x){
   sgtf <- gtf[gtf[["seqnames"]] == x[["sseqid"]],]
   sub.sgtf <- sgtf[sgtf[["start"]] <= x[["sstart"]],]
   sub.sgtf <- sub.sgtf[sub.sgtf[["end"]] >= x[["send"]],]
   ret.gene <- unique(sub.sgtf[["gene_id"]])
-  ret.regions <- paste(as.character(unique(sub.sgtf[["type"]])),collapse = ",")  
+  ret.regions <- paste(as.character(unique(sub.sgtf[["type"]])),collapse = ",")
   if(identical(ret.gene, character(0))){
     ret.gene <- c("intergenic")
   } else {
@@ -126,8 +136,9 @@ print("reconstructing cigar...")
 df$recon.cigar <- parApply(cl = cl, X = df, MARGIN = 1, FUN = reconstruct.cigar)
 df$recon.cigar <- gsub(" ", "X", df$recon.cigar)
 print("Counting mismatches...")
+
 df$total.mm <- unlist(lapply(df$recon.cigar, count.total.mismatches))
-df <- df[df$total.mm < mm.sum,]
+#df <- df[df$total.mm < mm.sum,]
 print("getting mismatch position...")
 df$mm.pos <- unlist(parLapply(cl = cl, X = df$recon.cigar,fun = get.mm.pos))
 print("parsing mismatch string...")
@@ -136,6 +147,7 @@ print("parsing annotation file...")
 df$loc <- parApply(cl = cl, X = df, MARGIN = 1, FUN = get.loci)
 print("Constructing final data frame!")
 final.df <- data.frame()
+
 
 df$qseqid <- c("test-gRNA")
 
@@ -159,8 +171,8 @@ final.df$bb <- NULL
 final.df$cc <- NULL
 final.df$dd <- NULL
 
-final.df$total.mm <- unlist(lapply(final.df$recon.cigar, count.total.mismatches))
-final.df <- final.df[final.df$total.mm < 7,]
+#final.df$total.mm <- unlist(lapply(final.df$recon.cigar, count.total.mismatches))
+#final.df <- final.df[final.df$total.mm < 7,]
 
 write.csv(final.df, paste(prefix, "-single-gRNA-results.csv", sep = ""))
-
+stopCluster(cl = cl)

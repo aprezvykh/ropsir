@@ -115,7 +115,11 @@ case $key in
     shift
     shift
     ;;
-    -top|--top_gnra)
+    -c|--paralogs_cutoff)
+    paralogs_cutoff="$2"
+    shift
+    shift
+    ;;-top|--top_gnra)
     top_grna="$2"
     shift
     shift
@@ -233,8 +237,14 @@ if [[ -z "$word_size"  ]]
 
 if [[ -z "$test_gene"  ]]
         then
-                echo "Sorting of final list was not specified! Setting default"
+                echo "Test gene is not set!"
                 test_gene="nogene"
+        fi
+
+if [[ -z "$paralogs_cutoff"  ]]
+        then
+                echo "Paralogs cutoff is not set!"
+                paralogs_cutoff=0.05
         fi
 
 set -- "${POSITIONAL[@]}" # restore positional parameters
@@ -346,7 +356,8 @@ if  [[ $is_ssconvert -eq 1 ]]
         fi
 
 
-genome_size=$(cat $genome | wc | awk '{print $3-$1}')
+initial_genome=$genome
+genome_size=$(cat $initial_genome | wc | awk '{print $3-$1}')
 spacer_regexp=$(yes '.' | head -n $spacer_length | tr -d '\n')
 
 if [ $protein_coding_only = "T" ] || [ $protein_coding_only = "t" ];
@@ -358,10 +369,11 @@ if [ $protein_coding_only = "T" ] || [ $protein_coding_only = "t" ];
 		genome=$genome_cds
 fi
 
-
 if [ $paralogs = "T" ] || [ $paralogs = "t" ];
 	then
 		echo "Paralogs search executing!"
+		echo $genome
+		echo $test_gene
 		samtools faidx $genome $test_gene > $test_gene.fasta
 		int_gene_len=$(cat $test_gene.fasta | wc -l)
 		if [[ int_gene_len -eq 1 ]];
@@ -372,12 +384,12 @@ if [ $paralogs = "T" ] || [ $paralogs = "t" ];
 		fi
 		echo "Creating CDS BLAST database..."
 		makeblastdb -in $genome -dbtype nucl
-		blastn -db $genome -query $test_gene.fasta -num_threads $threads -outfmt 6 > paralogs.outfmt6
+		blastn -db $genome -query $test_gene.fasta -num_threads $threads -outfmt 6 -evalue $paralogs_cutoff > paralogs.outfmt6
 		paralog_n_raw=$(cat paralogs.outfmt6 | wc -l)
 		paralog_n_parsed=$(expr $paralog_n_raw - 1)
 		if [[ $paralog_n_parsed -eq 0 ]];
 			then
-				echo "Cannot find paralogs for gene! Exitting!" 
+				echo "Cannot find paralogs for gene! Exitting!"
 				exit 0
 			else
 				echo "$paralog_n_parsed paralogs has been found for $test_gene!"
@@ -390,9 +402,12 @@ if [ $paralogs = "T" ] || [ $paralogs = "t" ];
 				echo $curr_paralog
 				samtools faidx $genome $curr_paralog >> paralogs.fasta
 			done
+		echo "Creating BLAST db for paralog gene sequences"
+		genome=paralogs.fasta
+		makeblastdb -in $genome -dbtype nucl
 fi
-exit 0
 
+#exit 0
 
 if [[ ! -z "$test_grna" ]]
 	then
@@ -401,33 +416,40 @@ if [[ ! -z "$test_grna" ]]
 		echo "Testing gRNA with sequence $test_grna"
 		echo ">test_gRNA" > testgrna.fasta
 		echo $test_grna > testgrna.fasta
-		blastb_dir=$(dirname $genome)
+		blastb_dir=$(dirname $initial_genome)
 		is_blastdb=$(ls $blastdb_dir | grep ".nin" | wc -l)
 		if [[ $is_blastdb -eq 0 ]]
         		then
                 		echo "BLAST database not found! Creating..."
-               		 	makeblastdb -in $genome -dbtype nucl
+               		 	makeblastdb -in $initial_genome -dbtype nucl
         		else
                 		echo "BLAST database found! Using existing..."
         	fi
 		echo "Aligning spacer seqiences to reference genome! Evaluating XML blast output"
 		echo "XML blast"
-		blastn -task 'blastn-short' -db $genome -query $testgrna_file -num_threads $threads -word_size $word_size -outfmt 5 -evalue 100 > blast.xml
+		blastn -task 'blastn-short' -db $initial_genome -query $testgrna_file -num_threads $threads -word_size $word_size -outfmt 5 -evalue 100 > blast.xml
 		echo "Converting XML to tabular..."
 		$script_dir/./blastxml_to_tabular.py blast.xml > blast.outfmt6
 		blastxmlparser --threads $threads -n 'hit.score, hsp.evalue, hsp.qseq, hsp.midline' blast.xml > blast.tsv
 		RNAfold $testgrna_file --noPS | grep ". (" | awk '{print $3}' | sed 's/)//' > energies.txt
 		$script_dir/./parse_tsv_single_gRNA.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch $protein_coding
 		echo "Done! Purging..."
-		rm blast.xml blast.tsv blast.outfmt6 energies.txt testgrna.fasta
+		rm $curr_exec_dir/blast.xml $curr_exec_dir/blast.tsv $curr_exec_dir/blast.outfmt6 $curr_exec_dir/energies.txt $curr_exec_dir/testgrna.fasta $curr_exec_dir/genome_cds.fasta $curr_exec_dir/genome_cds.fasta.fai
 		ls *.csv | parallel 'ssconvert {} {.}.xls'
 		exit 0
 fi
 
-
-
 echo "Regular expression used in search is $spacer_regexp"
-cat $genome | grep -oh "$spacer_regexp.[AG][AG]" | grep -v "$unallowed_spacer_string" | grep -v "$unallowed_pam_end$" > $all_ngg_sequences
+
+if [[ $paralogs = "T" ]] || [[ $paralogs = "t" ]];
+	then
+		cat $genome | grep -oh "$spacer_regexp.[AG][AG]" | grep -v "$unallowed_spacer_string" | grep -v "$unallowed_pam_end$" > $all_ngg_sequences
+elif [[ $paralogs = "F" ]] || [[ $paralogs = "f" ]];
+		then
+		echo "Paralog search is disabled"
+		genome=$initial_genome
+		cat $genome | grep -oh "$spacer_regexp.[AG][AG]" | grep -v "$unallowed_spacer_string" | grep -v "$unallowed_pam_end$" > $all_ngg_sequences
+fi
 
 ngg_length=$(cat $all_ngg_sequences | wc -l)
 echo "Genome size is $genome_size"
@@ -488,17 +510,27 @@ blastxmlparser --threads $threads -n 'hit.score, hsp.evalue, hsp.qseq, hsp.midli
 blastn_x=$(cat blast.tsv | wc -l)
 blast_f=$(cat blast.outfmt6 | wc -l)
 
+if [[ $paralogs = "T" ]] || [[ $paralogs = "t" ]];
+        then
+                echo "Off-targeting spacer sequences"
+                blastn -task 'blastn-short' -db $initial_genome -query $final_spacers -num_threads $threads -word_size $word_size -outfmt 5 -evalue 100 > blast.offtarget.xml
+		$script_dir/./blastxml_to_tabular.py blast.offtarget.xml > blast.offtarget.outfmt6
+		blastxmlparser --threads $threads -n 'hit.score, hsp.evalue, hsp.qseq, hsp.midline' blast.offtarget.xml > blast.offtarget.tsv
+
+fi
+
+#exit 0
+
 echo "Executing RNAfold!"
 RNAfold $final_spacers --noPS | grep "\\." | sed 's/[^ ]* //' | sed 's/)//' | sed 's/(//' > energies.txt
 
 echo "Executing final R script!"
-echo "$script_dir/./parse_tsv.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch $protein_coding_only $test_gene $curr_exec_dir $script_dir"
-$script_dir/./parse_tsv.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch $protein_coding_only $test_gene $curr_exec_dir $script_dir
+echo "$script_dir/./parse_tsv.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch $protein_coding_only $test_gene $curr_exec_dir $script_dir $paralogs" 
+$script_dir/./parse_tsv.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch $protein_coding_only $test_gene $curr_exec_dir $script_dir $paralogs
 
 echo "Done! Purging..."
 
-rm $curr_exec_dir/blast.xml $curr_exec_dir/blast.tsv $curr_exec_dir/blast.outfmt6 $curr_exec_dir/energies.txt $curr_exec_dir/potential_dbg_ngg.fasta $curr_exec_dir/potential_ngg.fasta $curr_exec_dir/potential_ngg.fasta.parsed $curr_exec_dir/ngg.headers.fasta $curr_exec_dir/genome_cds.*
-
+rm $curr_exec_dir/blast.xml $curr_exec_dir/blast.tsv $curr_exec_dir/blast.outfmt6 $curr_exec_dir/energies.txt $curr_exec_dir/potential_dbg_ngg.fasta $curr_exec_dir/potential_ngg.fasta $curr_exec_dir/potential_ngg.fasta.parsed $curr_exec_dir/ngg.headers.fasta $curr_exec_dir/genome_cds.* $curr_exec_dir/paralogs.fasta*
 
 echo "Converting to XLS! (ssconvert warning about X11 display is non-crucial, just skip it :) )"
 if [[ $is_ssconvert -eq 1 ]]
