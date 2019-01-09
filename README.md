@@ -1,6 +1,6 @@
 **ROPSIR**
 This software is made to find degenerate CRISPR-CAS9 gRNA targets in genome. It was developed a software to test <br/>
-different modificated Cas9 types. Main aim of ropsir is  
+different modificated Cas9 types. Main aim of ropsir is ...
 **Software requirements:** <br/>
 *Linux system* (tested in Ubuntu 16.04, kernel version 4.15.0-30-generic, 64 cores, 1TB RAM) <br/>
 *Multicore* (8+) <br/>
@@ -45,11 +45,11 @@ from "gene_id" column from gtf), character <br/>
 -a - annotation file in GTF format, file <br/>
 -pc - use only protein-coding sequences, ignore intergenic region (T/F), bool <br/>
 -o - search for paralogs for gene (T/F)
--d - debug mode
+-d - debug mode (T/F)
 
 **Sample runs:** <br/>
 *git clone https://github.com/aprezvykh/ropsir* <br/>
-*install.R* <br/>
+*sudo install.R* <br/>
 1) Running ropsir to find gRNAs and targets for only protein-coding sequences <br/>
 *~/ropsir_location/./ropsir.sh -g ~/ropsir_location/data/genome.fasta -a ~/ropsir_location/data/genome.gtf -t 32 -d T -t 32 -pc T -o F -pr test.1* <br/>
 
