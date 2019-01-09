@@ -164,7 +164,7 @@ if [[ ! -z "$help" ]]
 
 if [[ -z "$genome" ]]
 	then
-		echo "Genome must be specified, nowhere to look for spacer sites!"
+		echo "Genome must be specified, nowhere to look for spacer sites! Exiting..."
 		exit 0
 	fi
 
@@ -177,9 +177,22 @@ if [[ -z "$prefix" ]]
 
 if [[ -z "$annotation_file" ]]
 	then
-		echo "Genome annotation file must be specified!"
+		echo "Genome annotation file must be specified! Exiting..."
 		exit 0
 	fi
+
+if [[ -z "$protein_coding_only" ]]
+        then
+                echo "Proteing-coding variable (-pc) should be set as T/F! Exiting..."
+                exit 0
+        fi
+
+if [[ -z "$paralogs" ]]
+        then
+                echo "Paralogs variable (-o) should be set as T/F! Exiting..."
+                exit 0
+        fi
+
 
 if [[ -z "$spacer_length" ]]
 	then
@@ -525,9 +538,10 @@ echo "Executing RNAfold!"
 RNAfold $final_spacers --noPS | grep "\\." | sed 's/[^ ]* //' | sed 's/)//' | sed 's/(//' > energies.txt
 
 echo "Executing final R script!"
-echo "$script_dir/./parse_tsv.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch $protein_coding_only $test_gene $curr_exec_dir $script_dir $paralogs" 
-$script_dir/./parse_tsv.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch $protein_coding_only $test_gene $curr_exec_dir $script_dir $paralogs
 
+echo "$script_dir/./parse_tsv.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch $protein_coding_only $test_gene $curr_exec_dir $script_dir $paralogs" 
+
+$script_dir/./parse_tsv.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch $protein_coding_only $test_gene $curr_exec_dir $script_dir $paralogs
 echo "Done! Purging..."
 
 rm $curr_exec_dir/blast.xml $curr_exec_dir/blast.tsv $curr_exec_dir/blast.outfmt6 $curr_exec_dir/energies.txt $curr_exec_dir/potential_dbg_ngg.fasta $curr_exec_dir/potential_ngg.fasta $curr_exec_dir/potential_ngg.fasta.parsed $curr_exec_dir/ngg.headers.fasta $curr_exec_dir/genome_cds.* $curr_exec_dir/paralogs.fasta*

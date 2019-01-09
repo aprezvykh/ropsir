@@ -49,8 +49,6 @@ for(f in need.soft) {
   print(paste(f, "is installed in", soft))
   }
 }
-
-
 zz <- system("which kek", intern = T)
 
 local({r <- getOption("repos")

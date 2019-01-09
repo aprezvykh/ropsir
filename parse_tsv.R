@@ -1,4 +1,5 @@
 #!/usr/bin/Rscript
+library(Rcpp, warn.conflicts = FALSE, quietly = TRUE)
 library(rtracklayer,warn.conflicts = FALSE,quietly = TRUE)
 library(stringr,warn.conflicts = FALSE,quietly = TRUE)
 library(parallel,warn.conflicts = FALSE,quietly = TRUE)
@@ -44,6 +45,7 @@ cat(paste("Tested gene name is", test.gene, sep = " "),sep = "\n")
 
 cl <- makeCluster(threads,type = "FORK")
 setwd(dir)
+
 if(identical(tolower(paralogs), "f")){
     tab <- read.delim("blast.outfmt6",header = F,stringsAsFactors = F)
     pam <- read.delim("blast.tsv",header = F, stringsAsFactors = F)
@@ -63,8 +65,6 @@ if(identical(tolower(paralogs), "t")){
   offtarget.df$target <- c("offtarget")
   df <- bind_rows(target.df, offtarget.df)
 }
-
-
 
 letter.freq <- function(x){
   ss <- summary(as.factor(unlist(strsplit(x, NULL))))
@@ -151,7 +151,7 @@ if(identical(test.gene, "nogene")){
   }
 }
 
-gtf <- as.data.frame(import(gtf.path))
+#gtf <- as.data.frame(import(gtf.path))
 fasta <- read.delim("ngg.headers.fasta", header = F)
 energies <- read.table("energies.txt", header = F)
 headers <- as.character(fasta[grep(">", fasta$V1),])
@@ -161,27 +161,51 @@ spacer.seqs$headers <- gsub(">", "", spacer.seqs$headers)
 energies$name <- spacer.seqs$headers
 names(energies) <- c("val", "name")
 
-names(df) <- c("qseqid",
-               "sseqid",
-               "pident",
-               "length",
-               "mismatch",
-               "gapopen", 
-               "qstart", 
-               "qend", 
-               "sstart", 
-               "send", 
-               "evalue", 
-               "bitscore",
-               "aa",
-               "bb",
-               "cc",
-               "dd",
-               "ee",
-               "seq",
-               "sticks",
-               "target")
-df$ee <- NULL
+
+if(identical(tolower(paralogs), "t")){
+    names(df) <- c("qseqid",
+                   "sseqid",
+                   "pident",
+                   "length",
+                   "mismatch",
+                   "gapopen", 
+                   "qstart", 
+                   "qend", 
+                   "sstart", 
+                   "send", 
+                   "evalue", 
+                   "bitscore",
+                   "aa",
+                   "bb",
+                   "cc",
+                   "dd",
+                   "ee",
+                   "seq",
+                   "sticks",
+                   "target")
+} else if(identical(tolower(paralogs), "f")){
+
+    names(df) <- c("qseqid",
+                   "sseqid",
+                   "pident",
+                   "length",
+                   "mismatch",
+                   "gapopen", 
+                   "qstart", 
+                   "qend", 
+                   "sstart", 
+                   "send", 
+                   "evalue", 
+                   "bitscore",
+                   "aa",
+                   "bb",
+                   "cc",
+                   "dd",
+                   "ee",
+                   "seq",
+                   "sticks")
+
+}
 
 mm.sum <- as.numeric(seed.mismatch + non.seed.mismatch)
 clusterExport(cl, "gtf")
@@ -224,6 +248,10 @@ final.df$aa <- NULL
 final.df$bb <- NULL
 final.df$cc <- NULL
 final.df$dd <- NULL
+
+
+final.df$gc.content <- as.numeric(as.character(unlist(lapply(as.character(final.df$pam.fasta), letter.freq))))
+
 
 
 if(identical(tolower(paralogs), "t")){
@@ -306,6 +334,7 @@ if(identical(test.gene, "nogene")){
       big.final$GC.content <- as.character(unlist(lapply(big.final$PAM.sequence, letter.freq)))
     }
 }
+
 write.csv(big.final, paste(prefix, "-results.csv", sep = ""))
 big.final.for.html <- big.final
 big.final.for.html[,1] <- NULL
