@@ -35,6 +35,10 @@ different modificated Cas9 types. Main aim of ropsir is
 -nm - number of mismatches in non-seed region, integer <br/>
 -tg - test specific gRNA sequence to find targets (GATTATAATATTCCTTGTGTTAG, for example), string <br/>
 -pc - use only protein-coding sequences, ignore intergenic region (T/F), bool <br/>
+-ts - test specific gene to find gRNA for its sequence (gene identifyer format should be <br/>
+from "gene_id" column from gtf), character <br/>
+-o - search for paralogs for gene (T/F) - works with -ts option, script will try to find paralogs for gene specifyed in -ts option <br/>
+-c - paralogs cutoff (evalue scoring cutoff for paralogs blast) - float
 
 **Sample run:** <br/>
 *git clone https://github.com/aprezvykh/ropsir* <br/>
