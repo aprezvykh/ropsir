@@ -16,14 +16,11 @@ protein.coding <- args[12]
 
 #dir <- "~/ropsir.TESTING/"
 #gtf.path <- "~/git/ropsir/data/genome.gtf"
-#prefix <- "sas"
+#prefix <- "test.4"
 #threads <- 32
 #seed.mismatch <- 2
 #non.seed.mismatch <- 4
 #protein.coding <- "T"
-
-
-
 
 seed.mismatch <- as.numeric(seed.mismatch)
 non.seed.mismatch <- as.numeric(non.seed.mismatch)
@@ -171,8 +168,20 @@ final.df$bb <- NULL
 final.df$cc <- NULL
 final.df$dd <- NULL
 
-#final.df$total.mm <- unlist(lapply(final.df$recon.cigar, count.total.mismatches))
-#final.df <- final.df[final.df$total.mm < 7,]
+final.df$coord <- paste(final.df$sseqid, ":",final.df$sstart, "-", final.df$send, sep = "")
+final.df$pident <- NULL
+final.df$length <- NULL
+final.df$mismatch <- NULL
+final.df$qstart <- NULL
+final.df$qend <- NULL
+final.df$sstart <- NULL
+final.df$send <- NULL
+final.df$sticks <- NULL
+final.df$gapopen <- NULL
+
+names(final.df) <- c("gRNA.id", "chr", "evalue", "bitscore",
+                     "Aligned.sequence", "cigar.string", "total.mismatch.N", "mismatch.position",
+                     "validation", "Locus", "gRNA.energy", "PAM.sequence", "GC.content", "Genomic.coordinate")
 
 write.csv(final.df, paste(prefix, "-single-gRNA-results.csv", sep = ""))
 stopCluster(cl = cl)

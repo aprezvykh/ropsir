@@ -1,7 +1,7 @@
 #!/usr/bin/Rscript
 options(warn = -1)
 print("This script will automatically install R packages and software!")
-need.soft <- c("python", "blastn", "ruby", "gem", "blastxmlparser", "Rscript", "RNAfold")
+need.soft <- c("python", "blastn", "ruby", "gem", "blastxmlparser", "Rscript", "RNAfold", "gnumeric")
 
 install.python <- function(){
   system("sudo apt-get install python")

@@ -33,15 +33,16 @@ cat(paste("Non-seed mismatch number is", non.seed.mismatch, sep = " "),sep = "\n
 cat(paste("Protein coding is", protein.coding, sep = " "),sep = "\n")
 cat(paste("Tested gene name is", test.gene, sep = " "),sep = "\n")
 
-#dir <- c("~/ropsir.TESTING/")
-#gtf.path <- c("~/git/ropsir/data/genome.gtf")
-#prefix <- c("gg")
-#threads <- 16
-#seed.mismatch <- 2
-#non.seed.mismatch <- 4
-#protein.coding <- "T"
-#test.gene <- "YAL005C"
-#paralogs <- "T"
+dir <- c("~/ropsir.TESTING/")
+gtf.path <- c("~/git/ropsir/data/genome.gtf")
+prefix <- c("test.3")
+threads <- 32
+seed.mismatch <- 2
+non.seed.mismatch <- 4
+protein.coding <- "T"
+test.gene <- "YAL005C"
+paralogs <- "T"
+
 
 cl <- makeCluster(threads,type = "FORK")
 setwd(dir)
@@ -65,6 +66,7 @@ if(identical(tolower(paralogs), "t")){
   offtarget.df$target <- c("offtarget")
   df <- bind_rows(target.df, offtarget.df)
 }
+
 
 letter.freq <- function(x){
   ss <- summary(as.factor(unlist(strsplit(x, NULL))))
@@ -133,6 +135,16 @@ construct.final.df <- function(x){
 }
 
 
+get.gene.coord <- function(x){
+  sub <- gtf[grep(x, gtf$gene_id,fixed = T),]
+  if(nrow(sub)<1){
+    return("intergenic")
+  }
+  sub <- sub[sub$type == "gene",]
+  return(paste(sub$seqnames, ":", sub$start, "-", sub$end, sep = ""))
+}
+
+
 exit <- function() {
   .Internal(.invokeRestart(list(NULL, NULL), NULL))
 }
@@ -151,7 +163,6 @@ if(identical(test.gene, "nogene")){
   }
 }
 
-#gtf <- as.data.frame(import(gtf.path))
 fasta <- read.delim("ngg.headers.fasta", header = F)
 energies <- read.table("energies.txt", header = F)
 headers <- as.character(fasta[grep(">", fasta$V1),])
@@ -160,7 +171,6 @@ spacer.seqs <- data.frame(headers,seqs)
 spacer.seqs$headers <- gsub(">", "", spacer.seqs$headers)
 energies$name <- spacer.seqs$headers
 names(energies) <- c("val", "name")
-
 
 if(identical(tolower(paralogs), "t")){
     names(df) <- c("qseqid",
@@ -207,6 +217,28 @@ if(identical(tolower(paralogs), "t")){
 
 }
 
+
+if(identical(tolower(paralogs), "t")){
+    df.tar <- df[df$target == "target",]
+    df.offtar <- df[df$target == "offtarget",]
+    tar.gene.coords <- data.frame(unlist(lapply(df.tar$sseqid, get.gene.coord)),stringsAsFactors = F)
+    names(tar.gene.coords) <- c("coord")
+    tar.gene.coords$chr <- unlist(lapply(strsplit(tar.gene.coords$coord,":"), function(x)x[[1]]))
+    tmp <- unlist(lapply(strsplit(tar.gene.coords$coord,"-"), function(x)x[[1]]))
+    tar.gene.coords$start <- unlist(lapply(strsplit(tmp, ":"), function(x)x[[2]]))
+    tar.gene.coords$stop <- unlist(lapply(strsplit(tar.gene.coords$coord,"-"), function(x)x[[2]]))
+    tar.gene.coords$true.start <- as.numeric(tar.gene.coords$start) + df.tar$sstart
+    tar.gene.coords$true.end <- as.numeric(tar.gene.coords$stop) + df.tar$send
+    df.tar$sseqid <- tar.gene.coords$chr
+    df.tar$sstart <- tar.gene.coords$true.start
+    df.tar$send <- tar.gene.coords$true.end
+    df <- data.frame()
+    df <- bind_rows(df.tar, df.offtar)
+}
+
+unique(df.tar$sseqid)
+
+
 mm.sum <- as.numeric(seed.mismatch + non.seed.mismatch)
 clusterExport(cl, "gtf")
 cat("reconstructing cigar...", sep = "\n")
@@ -222,6 +254,7 @@ df$val <- unlist(parLapply(cl = cl, X = df$mm.pos, fun = parse.mismatch.string))
 cat("parsing annotation file. This can take a while...", sep = "\n")
 df$loc <- parApply(cl = cl, X = df, MARGIN = 1, FUN = get.loci)
 cat("Constructing final data frame!", sep = "\n")
+
 
 grna.ids <- unique(df[["qseqid"]])
 
@@ -253,6 +286,7 @@ final.df$dd <- NULL
 final.df$gc.content <- as.numeric(as.character(unlist(lapply(as.character(final.df$pam.fasta), letter.freq))))
 
 
+View(final.df[final.df$target == "offtarget",])
 
 if(identical(tolower(paralogs), "t")){
   final.df$mismatch <- NULL
@@ -265,19 +299,17 @@ if(identical(tolower(paralogs), "t")){
   final.df$loc <- NULL
   big.final <- final.df
   names(big.final) <- c("gRNA.id","gene.id","gRNA.alignment.length", "gRNA.alignment.start",
-                        "gRNA.alignment.length", "bitscore", "aligned.sequence", "cigar.string", "total.mismatch.N",
-                        "mismatch.position", "validation", "gRNA.energy", "PAM.sequence", "GC.content","target")
+                        "gRNA.alignment.end", "bitscore", "evalue", "aligned.sequence", "target", "cigar.string", "total.mismatch.N",
+                        "mismatch.position", "validation", "gRNA.energy", "PAM.sequence", "GC.content")
   write.csv(big.final, paste(prefix, "-results.csv", sep = ""))
   big.final.for.html <- big.final
   big.final.for.html[,1] <- NULL
   write.table(big.final.for.html, paste(prefix, "-results.tsv", sep = ""),quote = F,sep = "\t")
-  
   #cat(paste("perl ", ropsir.dir, "/csv2html.pl ", files.dir, " > ", prefix, "results.html", sep = ""), sep = "\n")
-  system(paste("perl ", ropsir.dir, "/csv2html.pl ", files.dir, "/", prefix, "-results.tsv", " > ", prefix, "-results.html", sep = ""))
+#  system(paste("perl ", ropsir.dir, "/csv2html.pl ", files.dir, "/", prefix, "-results.tsv", " > ", prefix, "-results.html", sep = ""))
   stopCluster(cl = cl)
   exit()
 }
-
 
 ###parsing final data frame
 if(identical(test.gene, "nogene")){
@@ -291,7 +323,7 @@ if(identical(test.gene, "nogene")){
       final.df$pident <- NULL
       final.df$loc <- NULL
       cat("Ordering data frame...", sep = "\n")
-      order.highest <- data.frame(table(t(final.df$qseqid)))[order(data.frame(table(t(final.df$qseqid)))$Freq, decreasing = T),]$Var1
+      order.highest <- as.character(data.frame(table(t(final.df$qseqid)))[order(data.frame(table(t(final.df$qseqid)))$Freq, decreasing = T),]$Var1)
       big.final <- data.frame()
       for(f in order.highest){
         cat(f, sep = "\n")
@@ -301,10 +333,10 @@ if(identical(test.gene, "nogene")){
       
       big.final <- big.final[seq(dim(big.final)[1],1),]
       names(big.final) <- c("gRNA.id","gene.id","gRNA.alignment.length", "gRNA.alignment.start",
-                            "gRNA.alignment.length", "bitscore", "aligned.sequence", "cigar.string", "total.mismatch.N",
+                            "gRNA.alignment.end", "bitscore", "evalue", "aligned.sequence", "cigar.string", "total.mismatch.N",
                             "mismatch.position", "validation", "gRNA.energy", "PAM.sequence", "GC.content")
-      big.final$PAM.sequence <- as.character(big.final$PAM.sequence)
-      big.final$GC.content <- as.character(unlist(lapply(big.final$PAM.sequence, letter.freq)))
+      #big.final$PAM.sequence <- as.character(big.final$PAM.sequence)
+      #big.final$GC.content <- as.character(unlist(lapply(big.final$PAM.sequence, letter.freq)))
     } else if (tolower(protein.coding) == "f") {
       final.df$mismatch <- NULL
       final.df$gapopen <- NULL
@@ -314,6 +346,7 @@ if(identical(test.gene, "nogene")){
       final.df$sticks <- NULL
       final.df$pident <- NULL
       final.df$coord <- paste(final.df$sseqid, ":", final.df$sstart, "-", final.df$send, sep = "")
+      #final.df$coord <- NULL
       final.df$sseqid <- NULL
       final.df$sstart <- NULL
       final.df$send <- NULL
@@ -327,7 +360,7 @@ if(identical(test.gene, "nogene")){
         big.final <- rbind(df, big.final)
       }
       big.final <- big.final[seq(dim(big.final)[1],1),]
-      names(big.final) <- c("gRNA.id","gRNA.alignment.length", "bitscore",
+      names(big.final) <- c("gRNA.id","gRNA.alignment.length", "bitscore", "evalue",
                             "aligned.sequence", "cigar.string", "total.mismatch.N",
                             "mismatch.position", "validation", "Locus", "gRNA.energy", "PAM.sequence", "GC.content", "Genome.cordinate")
       big.final$PAM.sequence <- as.character(big.final$PAM.sequence)
@@ -335,13 +368,14 @@ if(identical(test.gene, "nogene")){
     }
 }
 
+
 write.csv(big.final, paste(prefix, "-results.csv", sep = ""))
 big.final.for.html <- big.final
 big.final.for.html[,1] <- NULL
 write.table(big.final.for.html, paste(prefix, "-results.tsv", sep = ""),quote = F,sep = "\t")
 
 #cat(paste("perl ", ropsir.dir, "/csv2html.pl ", files.dir, " > ", prefix, "results.html", sep = ""), sep = "\n")
-system(paste("perl ", ropsir.dir, "/csv2html.pl ", files.dir, "/", prefix, "-results.tsv", " > ", prefix, "-results.html", sep = ""))
+#system(paste("perl ", ropsir.dir, "/csv2html.pl ", files.dir, "/", prefix, "-results.tsv", " > ", prefix, "-results.html", sep = ""))
 stopCluster(cl = cl)
 
 

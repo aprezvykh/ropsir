@@ -119,10 +119,6 @@ case $key in
     paralogs_cutoff="$2"
     shift
     shift
-    ;;-top|--top_gnra)
-    top_grna="$2"
-    shift
-    shift
     ;;
 
 esac
@@ -256,9 +252,29 @@ if [[ -z "$test_gene"  ]]
 
 if [[ -z "$paralogs_cutoff"  ]]
         then
-                echo "Paralogs cutoff is not set!"
+                echo "Paralogs cutoff is not set! Setting 0.05"
                 paralogs_cutoff=0.05
         fi
+
+
+if [ "$paralogs" = "T" ] || [ "$paralogs" = "t" ];
+	then
+		if [[ "$test_gene" = "nogene" ]];
+			then
+				echo "Paralog search (-o) is set by TRUE, but gene (-ts) is not specified!"
+				exit 0
+		fi
+fi
+
+
+if [ "$protein_coding_only" = "F" ] || [ "$protein_coding_only" = "f" ];	
+	then
+		if [[ "$test_gene" != "nogene" ]];
+			then
+				echo "Protein-coding is set to FALSE, but specific gene is set! Change protein-coding variable (-pc) to TRUE"
+				exit 0
+		fi
+fi
 
 set -- "${POSITIONAL[@]}" # restore positional parameters
 
@@ -420,7 +436,7 @@ if [ $paralogs = "T" ] || [ $paralogs = "t" ];
 		makeblastdb -in $genome -dbtype nucl
 fi
 
-#exit 0
+
 
 if [[ ! -z "$test_grna" ]]
 	then
@@ -445,7 +461,7 @@ if [[ ! -z "$test_grna" ]]
 		$script_dir/./blastxml_to_tabular.py blast.xml > blast.outfmt6
 		blastxmlparser --threads $threads -n 'hit.score, hsp.evalue, hsp.qseq, hsp.midline' blast.xml > blast.tsv
 		RNAfold $testgrna_file --noPS | grep ". (" | awk '{print $3}' | sed 's/)//' > energies.txt
-		$script_dir/./parse_tsv_single_gRNA.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch $protein_coding
+ 		$script_dir/./parse_tsv_single_gRNA.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch $protein_coding
 		echo "Done! Purging..."
 		rm $curr_exec_dir/blast.xml $curr_exec_dir/blast.tsv $curr_exec_dir/blast.outfmt6 $curr_exec_dir/energies.txt $curr_exec_dir/testgrna.fasta $curr_exec_dir/genome_cds.fasta $curr_exec_dir/genome_cds.fasta.fai
 		ls *.csv | parallel 'ssconvert {} {.}.xls'
@@ -454,15 +470,51 @@ fi
 
 echo "Regular expression used in search is $spacer_regexp"
 
+
+if [ $protein_coding_only = "T" ] || [ $protein_coding_only = "t" ];
+	then
+		if [[ $paralogs = "F" ]] || [[ $paralogs = "f" ]] 
+			then
+				if [ $test_gene != "nogene" ];
+					then
+						is_gene=$($annotation_file | grep "$test_gene" | wc -l)
+						samtools faidx $genome_cds $test_gene > $test_gene.fasta
+						cat $test_gene.fasta | grep -oh "$spacer_regexp.[AG][AG]" | grep -v "$unallowed_spacer_string" | grep -v "$unallowed_pam_end$" > $all_ngg_sequences
+						awk ' {print;} NR % 1 == 0 { print ">"; }' $all_ngg_sequences > $all_ngg_sequences_space
+						$script_dir/./enter_fasta_headers.R $curr_exec_dir
+						makeblastdb -in $genome_cds -dbtype nucl
+						echo "Aligning spacer seqiences to reference genome! Evaluating XML blast output"
+						echo "XML blast"
+						blastn -task 'blastn-short' -db $genome_cds -query $final_spacers -num_threads $threads -word_size $word_size -outfmt 5 -evalue 100 > blast.xml
+						echo "Converting XML to tabular..."
+						$script_dir/./blastxml_to_tabular.py blast.xml > blast.outfmt6
+						echo "Evaluating XML parser"
+						blastxmlparser --threads $threads -n 'hit.score, hsp.evalue, hsp.qseq, hsp.midline' blast.xml > blast.tsv
+						echo "Executing RNAfold!"
+						RNAfold $final_spacers --noPS | grep "\\." | sed 's/[^ ]* //' | sed 's/)//' | sed 's/(//' > energies.txt
+						echo "Executing final R script!"
+						echo "$script_dir/./parse_tsv.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch $protein_coding_only $test_gene $curr_exec_dir $script_dir $paralogs"
+						$script_dir/./parse_tsv.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch $protein_coding_only $test_gene $curr_exec_dir $script_dir $paralogs
+						echo "Done! Purging..."
+					fi
+		fi
+fi
+
+
+echo $genome
+exit 0
 if [[ $paralogs = "T" ]] || [[ $paralogs = "t" ]];
 	then
 		cat $genome | grep -oh "$spacer_regexp.[AG][AG]" | grep -v "$unallowed_spacer_string" | grep -v "$unallowed_pam_end$" > $all_ngg_sequences
+
 elif [[ $paralogs = "F" ]] || [[ $paralogs = "f" ]];
 		then
 		echo "Paralog search is disabled"
-		genome=$initial_genome
+#		genome=$initial_genome
 		cat $genome | grep -oh "$spacer_regexp.[AG][AG]" | grep -v "$unallowed_spacer_string" | grep -v "$unallowed_pam_end$" > $all_ngg_sequences
 fi
+
+
 
 ngg_length=$(cat $all_ngg_sequences | wc -l)
 echo "Genome size is $genome_size"
@@ -515,13 +567,24 @@ if [[ $is_blastdb -eq 0 ]]
 
 echo "Aligning spacer seqiences to reference genome! Evaluating XML blast output"
 echo "XML blast"
-blastn -task 'blastn-short' -db $genome -query $final_spacers -num_threads $threads -word_size $word_size -outfmt 5 -evalue 100 > blast.xml
-echo "Converting XML to tabular..."
-$script_dir/./blastxml_to_tabular.py blast.xml > blast.outfmt6
-echo "Evaluating XML parser"
-blastxmlparser --threads $threads -n 'hit.score, hsp.evalue, hsp.qseq, hsp.midline' blast.xml > blast.tsv
-blastn_x=$(cat blast.tsv | wc -l)
-blast_f=$(cat blast.outfmt6 | wc -l)
+
+
+
+if [[ $paralogs = "T" ]] || [[ $paralogs = "t" ]];
+	then	
+		blastn -task 'blastn-short' -db $genome_cds -query $final_spacers -num_threads $threads -word_size $word_size -outfmt 5 -evalue 100 > blast.xml
+		echo "Converting XML to tabular..."
+		$script_dir/./blastxml_to_tabular.py blast.xml > blast.outfmt6
+		echo "Evaluating XML parser"
+		blastxmlparser --threads $threads -n 'hit.score, hsp.evalue, hsp.qseq, hsp.midline' blast.xml > blast.tsv
+	else
+		blastn -task 'blastn-short' -db $genome -query $final_spacers -num_threads $threads -word_size $word_size -outfmt 5 -evalue 100 > blast.xml
+                echo "Converting XML to tabular..."
+                $script_dir/./blastxml_to_tabular.py blast.xml > blast.outfmt6
+                echo "Evaluating XML parser"
+                blastxmlparser --threads $threads -n 'hit.score, hsp.evalue, hsp.qseq, hsp.midline' blast.xml > blast.tsv
+fi
+
 
 if [[ $paralogs = "T" ]] || [[ $paralogs = "t" ]];
         then
@@ -532,15 +595,13 @@ if [[ $paralogs = "T" ]] || [[ $paralogs = "t" ]];
 
 fi
 
-#exit 0
-
+exit 0
 echo "Executing RNAfold!"
 RNAfold $final_spacers --noPS | grep "\\." | sed 's/[^ ]* //' | sed 's/)//' | sed 's/(//' > energies.txt
 
 echo "Executing final R script!"
-
 echo "$script_dir/./parse_tsv.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch $protein_coding_only $test_gene $curr_exec_dir $script_dir $paralogs" 
-
+exit 0 
 $script_dir/./parse_tsv.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch $protein_coding_only $test_gene $curr_exec_dir $script_dir $paralogs
 echo "Done! Purging..."
 
