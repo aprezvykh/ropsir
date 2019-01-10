@@ -59,7 +59,8 @@ from "gene_id" column from gtf), character <br/>
 3) Running ropsir to find target genes for specific gRNA, genome-wide <br/>
 *~/ropsir_location/./ropsir.sh -g ~/ropsir_location/data/genome.fasta -a ~/ropsir_location/data/genome.gtf -t 32 -d T -t 32 -pc F -tg GGTAAGATGAAGGAAACTGCCGA -o F -pr test.5 <br/>
 
-
+4) To run all tests, just run:  <br/>
+*./run_tests.sh* <br/>
 
 If you found an issue, please, report it in current repository or email me: <br/>
 *aprezvykh@yandex.ru*
