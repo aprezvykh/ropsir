@@ -65,6 +65,21 @@ This mode also can be run in protein-coding mode (-pc T), and all-genome mode (-
 
 Output of this script is table, that presented in csv and html format; it should look like: <br/>
 ![alt text](https://github.com/aprezvykh/ropsir/blob/master/sample_images/ropsir_image.PNG) <br/>
+Column names explained: <br/>
+1) gRNA.id - id of guide RNA found <br/>
+2) gRNA.alignment.length - length of aligned guide RNA sequence <br/>
+3) bitscore - Bitscore parametr from blastn software <br/>
+4) evalue - Evalue parametr from blastn software <br/>
+5) Aligned.sequence - aligned part of guide RNA <br/>
+6) cigar.string - string; showing matches and mismatches of currend guide RNA, length 23 by default (| means match, X means mismatch) <br/>
+7) total.mismatch.N - total number of mismatches in alignment <br/>
+8) mismatch.position - position of mismatch (from left to right) <br/>
+9) validation - shows alignment validation (from mismatch number in seed and non-seed region) <br/>
+10) Locus - shows position of guide RNA alignment (gene_id or intergenic) <br/>
+11) gRNA.Energy - free fold energy of guide RNA <br/>
+12) GC.content - GC content :) <br/>
+13) Genomic.coordinate - genomic coordinate in alignment <br/>
+
 
 If you found an issue, please, report it in current repository or email me: <br/>
 *aprezvykh@yandex. ru*
