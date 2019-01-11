@@ -502,7 +502,7 @@ fi
 
 
 echo $genome
-exit 0
+
 if [[ $paralogs = "T" ]] || [[ $paralogs = "t" ]];
 	then
 		cat $genome | grep -oh "$spacer_regexp.[AG][AG]" | grep -v "$unallowed_spacer_string" | grep -v "$unallowed_pam_end$" > $all_ngg_sequences
@@ -595,20 +595,26 @@ if [[ $paralogs = "T" ]] || [[ $paralogs = "t" ]];
 
 fi
 
-exit 0
 echo "Executing RNAfold!"
 RNAfold $final_spacers --noPS | grep "\\." | sed 's/[^ ]* //' | sed 's/)//' | sed 's/(//' > energies.txt
 
 echo "Executing final R script!"
 echo "$script_dir/./parse_tsv.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch $protein_coding_only $test_gene $curr_exec_dir $script_dir $paralogs" 
-exit 0 
+
 $script_dir/./parse_tsv.R $(pwd) $annotation_file $prefix $threads $seed_mismatch $non_seed_mismatch $protein_coding_only $test_gene $curr_exec_dir $script_dir $paralogs
 echo "Done! Purging..."
 
-rm $curr_exec_dir/blast.xml $curr_exec_dir/blast.tsv $curr_exec_dir/blast.outfmt6 $curr_exec_dir/energies.txt $curr_exec_dir/potential_dbg_ngg.fasta $curr_exec_dir/potential_ngg.fasta $curr_exec_dir/potential_ngg.fasta.parsed $curr_exec_dir/ngg.headers.fasta $curr_exec_dir/genome_cds.* $curr_exec_dir/paralogs.fasta*
-
-echo "Converting to XLS! (ssconvert warning about X11 display is non-crucial, just skip it :) )"
-if [[ $is_ssconvert -eq 1 ]]
+if [[ $protein_coding_only = "T" ]] || [[ $protein_coding_only = "t" ]];
 	then
-		ls *.csv | parallel 'ssconvert {} {.}.xls'
+		rm $curr_exec_dir/blast.* $curr_exec_dir/genome_cds.* $curr_exec_dir/ngg.headers.fasta $curr_exec_dir/potential_dbg_ngg.fasta  $curr_exec_dir/potential_ngg.fasta $curr_exec_dir/potential_ngg.fasta.parsed $curr_exec_dir/energies.txt
+	elif  [[ $protein_coding_only = "F" ]] || [[ $protein_coding_only = "f" ]]
+		then
+			rm $curr_exec_dir/blast.* $curr_exec_dir/ngg.headers.fasta $curr_exec_dir/potential_dbg_ngg.fasta  $curr_exec_dir/potential_ngg.fasta $curr_exec_dir/potential_ngg.fasta.parsed $curr_exec_dir/energies.txt
 fi
+
+
+#echo "Converting to XLS! (ssconvert warning about X11 display is non-crucial, just skip it :) )"
+#if [[ $is_ssconvert -eq 1 ]]
+#	then
+#		ls *.csv | parallel 'ssconvert {} {.}.xls'
+#fi

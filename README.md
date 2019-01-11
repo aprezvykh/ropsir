@@ -50,17 +50,22 @@ from "gene_id" column from gtf), character <br/>
 **Sample runs:** <br/>
 *git clone https://github.com/aprezvykh/ropsir* <br/>
 *sudo install.R* <br/>
-1) Running ropsir to find gRNAs and targets for only protein-coding sequences <br/>
+
+1) Running ropsir to find gRNAs in genome-wide mode (parsing genome file by regular expression, with flags -sm;-nm;-u;-p;-s and finding **all** gRNAs and their targets)  <br/>
+This mode can be run in protein-coding mode (-pc T), and all-genome mode (-pc F). This mode is very computational resource-demanding, and should be used in parallel (at least, in 32 threads), <br/>
+otherwise, it can take a lot of time <br/>
 *~/ropsir_location/./ropsir.sh -g ~/ropsir_location/data/genome.fasta -a ~/ropsir_location/data/genome.gtf -t 32 -d T -t 32 -pc T -o F -pr test.1* <br/>
 
-2) Running ropsir to find gRNAs for specific gene and find paralogs in cDNA-sequences (also finds off-targets in intergenic regions) <br/>
-*~/ropsir_location/./ropsir.sh -g ~/ropsir_location/data/genome.fasta -a ~/ropsir_location/data/genome.gtf -t 32 -d T -t 32 -pc T -o T -ts YAL005C -pr test.2* <br/>
-
-3) Running ropsir to find target genes for specific gRNA, genome-wide <br/>
+2) Running ropsir to find target genes for specific gRNA, genome-wide (this mode takes nucleotide sequence from -tg flag, and find targets for ) <br/>
+This mode also can be run in protein-coding mode (-pc T), and all-genome mode (-pc F). <br/>
 *~/ropsir_location/./ropsir.sh -g ~/ropsir_location/data/genome.fasta -a ~/ropsir_location/data/genome.gtf -t 32 -d T -t 32 -pc F -tg GGTAAGATGAAGGAAACTGCCGA -o F -pr test.5 <br/>
 
-4) To run all tests, just run:  <br/>
-*./run_tests.sh* <br/>
+3) To run all tests, just run:  <br/>
+*./self_tests.sh* <br/>
+
+Output of this script is table, that presented in csv and html format; it should look like: <br/>
+
+
 
 If you found an issue, please, report it in current repository or email me: <br/>
-*aprezvykh@yandex.ru*
+*aprezvykh@yandex. ru*

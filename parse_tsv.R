@@ -5,8 +5,7 @@ library(stringr,warn.conflicts = FALSE,quietly = TRUE)
 library(parallel,warn.conflicts = FALSE,quietly = TRUE)
 library(plyr,warn.conflicts = FALSE,quietly = TRUE)
 library(dplyr,warn.conflicts = FALSE,quietly = TRUE)
-library(ggplot2,warn.conflicts = FALSE,quietly = TRUE)
-library(gridExtra,warn.conflicts = FALSE,quietly = TRUE)
+library(xtable,warn.conflicts = FALSE,quietly = TRUE)
 
 args <- commandArgs()
 
@@ -33,15 +32,15 @@ cat(paste("Non-seed mismatch number is", non.seed.mismatch, sep = " "),sep = "\n
 cat(paste("Protein coding is", protein.coding, sep = " "),sep = "\n")
 cat(paste("Tested gene name is", test.gene, sep = " "),sep = "\n")
 
-dir <- c("~/ropsir.TESTING/")
-gtf.path <- c("~/git/ropsir/data/genome.gtf")
-prefix <- c("test.3")
-threads <- 32
-seed.mismatch <- 2
-non.seed.mismatch <- 4
-protein.coding <- "T"
-test.gene <- "YAL005C"
-paralogs <- "T"
+#dir <- c("~/ropsir.TESTING/")
+#gtf.path <- c("~/git/ropsir/data/genome.gtf")
+#prefix <- c("test.3")
+#threads <- 32
+#seed.mismatch <- 2
+#non.seed.mismatch <- 4
+#protein.coding <- "T"
+#test.gene <- "YAL005C"
+#paralogs <- "T"
 
 
 cl <- makeCluster(threads,type = "FORK")
@@ -49,6 +48,12 @@ setwd(dir)
 
 if(identical(tolower(paralogs), "f")){
     tab <- read.delim("blast.outfmt6",header = F,stringsAsFactors = F)
+    if(nrow(tab) < 1){
+      cat("No hits in blast! Exitting", sep = "\n")
+      exit()
+    } else {
+      cat(paste("We got", nrow(tab), "blast hits!"), sep = "\n")
+    }
     pam <- read.delim("blast.tsv",header = F, stringsAsFactors = F)
     df <- bind_cols(tab,pam)
 }
@@ -217,7 +222,6 @@ if(identical(tolower(paralogs), "t")){
 
 }
 
-
 if(identical(tolower(paralogs), "t")){
     df.tar <- df[df$target == "target",]
     df.offtar <- df[df$target == "offtarget",]
@@ -235,8 +239,6 @@ if(identical(tolower(paralogs), "t")){
     df <- data.frame()
     df <- bind_rows(df.tar, df.offtar)
 }
-
-unique(df.tar$sseqid)
 
 
 mm.sum <- as.numeric(seed.mismatch + non.seed.mismatch)
@@ -257,12 +259,9 @@ cat("Constructing final data frame!", sep = "\n")
 
 
 grna.ids <- unique(df[["qseqid"]])
-
 clusterExport(cl,varlist = list("df", "grna.ids", "energies", "spacer.seqs", "letter.freq"))
 ll <- parLapply(cl = cl, X = grna.ids, fun = construct.final.df)
-
 final.df <- data.frame(do.call("rbind", ll))
-
 final.df <- final.df[grep("XXX$|XX$", final.df$recon.cigar, invert = T),]
 final.df$mm.pos <- gsub("-1", "0", final.df$mm.pos)
 
@@ -284,10 +283,7 @@ final.df$dd <- NULL
 
 
 final.df$gc.content <- as.numeric(as.character(unlist(lapply(as.character(final.df$pam.fasta), letter.freq))))
-
-
-View(final.df[final.df$target == "offtarget",])
-
+ 
 if(identical(tolower(paralogs), "t")){
   final.df$mismatch <- NULL
   final.df$gapopen <- NULL
@@ -305,8 +301,6 @@ if(identical(tolower(paralogs), "t")){
   big.final.for.html <- big.final
   big.final.for.html[,1] <- NULL
   write.table(big.final.for.html, paste(prefix, "-results.tsv", sep = ""),quote = F,sep = "\t")
-  #cat(paste("perl ", ropsir.dir, "/csv2html.pl ", files.dir, " > ", prefix, "results.html", sep = ""), sep = "\n")
-#  system(paste("perl ", ropsir.dir, "/csv2html.pl ", files.dir, "/", prefix, "-results.tsv", " > ", prefix, "-results.html", sep = ""))
   stopCluster(cl = cl)
   exit()
 }
@@ -370,12 +364,22 @@ if(identical(test.gene, "nogene")){
 
 
 write.csv(big.final, paste(prefix, "-results.csv", sep = ""))
-big.final.for.html <- big.final
-big.final.for.html[,1] <- NULL
-write.table(big.final.for.html, paste(prefix, "-results.tsv", sep = ""),quote = F,sep = "\t")
+html.filename <- paste(files.dir, "/", prefix, "-output.html", sep = "")
+print(html.filename)
+cat("Saving output to HTML table!")
+sink(html.filename)
+print(xtable(big.final), type = "html")
+sink()
 
-#cat(paste("perl ", ropsir.dir, "/csv2html.pl ", files.dir, " > ", prefix, "results.html", sep = ""), sep = "\n")
-#system(paste("perl ", ropsir.dir, "/csv2html.pl ", files.dir, "/", prefix, "-results.tsv", " > ", prefix, "-results.html", sep = ""))
+###report
+if(identical(tolower(paralogs), "f")){
+  top.grnas <- as.character(unique(big.final$gRNA.id)[1:20])  
+  big.final.cutted <- big.final[big.final$gRNA.id %in% top.grnas,]
+  write.csv(big.final.cutted, paste(prefix, "-cutted-results.csv", sep = ""))
+  cat("Converting to XLS! (ssconvert warning about X11 display is non-crucial, just skip it :) )", sep = "\n")
+  system(paste("ssconvert ", prefix, "-cutted-results.csv ", prefix, "-cutted-results.xls", sep = ""))
+}
+
 stopCluster(cl = cl)
 
 
