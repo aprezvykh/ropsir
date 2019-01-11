@@ -64,8 +64,7 @@ This mode also can be run in protein-coding mode (-pc T), and all-genome mode (-
 *./self_tests.sh* <br/>
 
 Output of this script is table, that presented in csv and html format; it should look like: <br/>
-
-
+![alt text](https://github.com/aprezvykh/ropsir/blob/master/sample_images/ropsir_image.PNG) <br/>
 
 If you found an issue, please, report it in current repository or email me: <br/>
 *aprezvykh@yandex. ru*
