@@ -6,6 +6,11 @@ library(parallel)
 library(plyr)
 library(dplyr)
 
+exit <- function() {
+  .Internal(.invokeRestart(list(NULL, NULL), NULL))
+}
+
+
 dir <- args[6]
 gtf.path <- args[7]
 prefix <- args[8]
@@ -20,7 +25,7 @@ protein.coding <- args[12]
 #threads <- 32
 #seed.mismatch <- 2
 #non.seed.mismatch <- 4
-#protein.coding <- "T"
+#protein.coding <- "F"
 
 seed.mismatch <- as.numeric(seed.mismatch)
 non.seed.mismatch <- as.numeric(non.seed.mismatch)
@@ -33,6 +38,12 @@ print(paste("Using", threads, "threads!"))
 tab <- read.delim("blast.outfmt6",header = F,stringsAsFactors = F)
 pam <- read.delim("blast.tsv",header = F, stringsAsFactors = F)
 df <- bind_cols(tab,pam)
+nrow(df) < 1
+
+if(nrow(df) < 2){
+  cat("Check your gRNA! No hits found!", sep = "\n")
+  exit()
+}
 
 letter.freq <- function(x){
   ss <- summary(as.factor(unlist(strsplit(x, NULL))))
@@ -91,9 +102,6 @@ get.loci <- function(x){
   return(paste(ret.gene[1]))
 }
 
-exit <- function() {
-  .Internal(.invokeRestart(list(NULL, NULL), NULL))
-}
 
 print("importing GTF...")
 gtf <- as.data.frame(import(gtf.path))
@@ -147,18 +155,15 @@ final.df <- data.frame()
 
 
 df$qseqid <- c("test-gRNA")
+f <- unique(df$qseqid)
+sa <- df[df$qseqid == f,]
+en <- energies[energies$name == f,]
+sa$energy <- en$val
+sa$pam.fasta <- spacer.seqs[spacer.seqs$headers == f,]$seqs
+sa <- data.frame(sa, stringsAsFactors = F)
+sa$gc.content <- letter.freq(unique(as.character(sa$pam.fasta)))
+final.df <- rbind(sa, final.df)
 
-for(f in unique(df$qseqid)){
-  print(f)
-  sa <- df[df$qseqid == f,]
-  en <- energies[energies$name == f,]
-  en$val
-  sa$energy <- en$val
-  sa$pam.fasta <- spacer.seqs[spacer.seqs$headers == f,]$seqs
-  sa <- data.frame(sa, stringsAsFactors = F)
-  sa$gc.content <- letter.freq(unique(as.character(sa$pam.fasta)))
-  final.df <- rbind(sa, final.df)
-}
 
 final.df <- final.df[grep("XXX$|XX$", final.df$recon.cigar, invert = T),]
 final.df$mm.pos <- gsub("-1", "0", final.df$mm.pos)

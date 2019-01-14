@@ -43,6 +43,7 @@ from "gene_id" column from gtf), character <br/>
 
 **Minimum required arguments**
 -g - genome file in FASTA file, file <br/>
+-t - number of threads, file <br/>
 -a - annotation file in GTF format, file <br/>
 -pc - use only protein-coding sequences, ignore intergenic region (T/F), bool <br/>
 -o - search for paralogs for gene (T/F)
