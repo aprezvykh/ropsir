@@ -1,18 +1,18 @@
 **ROPSIR**
-This software is made to find degenerate CRISPR-CAS9 gRNA targets in genome. It was developed a software to test <br/>
-different modificated Cas9 types. Main aim of ropsir is ...
+This software is made to find degenerate CRISPR-CAS9 gRNA targets in genome. It was developed a software to test 
+different modificated Cas9 types. Main aim of ropsir is ... <br/>
 **Software requirements:** <br/>
 *Linux system* (tested in Ubuntu 16.04, kernel version 4.15.0-30-generic, 64 cores, 1TB RAM) <br/>
 *Multicore* (8+) <br/>
 *Ncbi-blast+* (install - sudo apt-get install ncbi-blast+ on Ubuntu/Debian systems) <br/>
-*samtools* (install - sudo apt-get install samtools) <br/>
-*R language* (install - sudo apt-get install Rscript) <br/>
-*blastxmlparser* (install - sudo gem install blastxmlparser) <br/>
-*RNAfold* (install - sudo apt-get install rnafold) <br/>
-*ssconvert* (optional, converts csv file to xls, install - sudo apt-get install ssconvert) <br/>
+*R language* (install - sudo apt-get install r-base-core Rscript) <br/>
+*blastxmlparser* (install -  sudo apt-get install ruby ruby-dev; sudu apt-get install gem; sudo gem install blastxmlparser) <br/>
+*RNAfold* (install - sudo apt-add-repository ppa:j-4/vienna-rna; sudo apt-get update; sudo apt-get install vienna-rna) <br/>
+*ssconvert* (optional, converts csv file to xls, install - sudo apt-get install gnumeric) <br/>
 *gffread* (need to convert genome file to CDS sequences) - see https://github.com/gpertea/gffread <br/>
 
-**R packages: (will be installed automatically)** <br/>
+
+**R packages: (will be installed automatically, by run install.R)** <br/>
 *Biostrings* <br/>
 *rtracklayer* <br/>
 *stringr* <br/>
@@ -20,25 +20,26 @@ different modificated Cas9 types. Main aim of ropsir is ...
 *plyr* <br/>
 *dplyr* <br/>
 
+
 **Run options**
 -g - genome file in FASTA file, file <br/>
 -a - annotation file in GTF format, file <br/>
--s - length of a spacer sequence exclude PAM site (20, for example), integer <br/>
--u - sequence that not allowed in spacer sequence (TTT, for example), string <br/>
--p - PAM sequence, that unallowed (AA, for example), string <br/>
+-s - length of a spacer sequence exclude PAM site (20, by default), integer <br/>
+-u - sequence that not allowed in spacer sequence (TTT, by default), string <br/>
+-p - PAM sequence, that unallowed (AA, by default), string <br/>
 -t - threads number, integer <br/>
--w - size of the word in blast, integer <br/>
+-w - size of the word in blast, integer (10 by default, for debugging purposes only) <br/>
 -d - uses only first 10 PAM sequences (T/F), bool <br/>
--pr - prefix for output csv file (string) <br/>
--k - do not delete supplementary (T/F), bool files <br/>
--sm - number of mismatches in seed region, integer <br/>
--nm - number of mismatches in non-seed region, integer <br/>
+-pr - prefix for output csv file (string, date by default) <br/>
+-sm - number of mismatches in seed region, integer (2 by default) <br/>
+-nm - number of mismatches in non-seed region, integer (4 by default) <br/>
 -tg - test specific gRNA sequence to find targets (GATTATAATATTCCTTGTGTTAG, for example), string <br/>
 -pc - use only protein-coding sequences, ignore intergenic region (T/F), bool <br/>
 -ts - test specific gene to find gRNA for its sequence (gene identifyer format should be <br/>
 from "gene_id" column from gtf), character <br/>
 -o - search for paralogs for gene (T/F) - works with -ts option, script will try to find paralogs for gene specifyed in -ts option <br/>
--c - paralogs cutoff (evalue scoring cutoff for paralogs blast) - float
+-c - paralogs cutoff (evalue scoring cutoff for paralogs blast) - float, 0.05 by default (should be set greater then 0.05, if you cannot find paralogs in paralog search mode) <br/>
+
 
 **Minimum required arguments**
 -g - genome file in FASTA file, file <br/>
