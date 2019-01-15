@@ -78,11 +78,9 @@ letter.freq <- function(x){
   gc <- 100*((ss[3] + ss[2])/23)
   return(gc)
 }
-
 get.mm.pos <- function(x){
   paste(as.character(gregexpr(pattern ='X',x)[[1]]), collapse = ",")
 }
-
 parse.mismatch.string <- function(x){
   cc.cp <- as.numeric(strsplit(x, ",")[[1]])
   if(length(which(cc.cp < 10))> non.seed.mismatch){
@@ -94,7 +92,6 @@ parse.mismatch.string <- function(x){
   }
   
 }
-
 reconstruct.cigar <- function(x){
   st <- x[["sticks"]]
   ll <- seq(x[["qstart"]], x[["qend"]])
@@ -110,11 +107,9 @@ reconstruct.cigar <- function(x){
   pp <- gsub('.$', "", pp)
   return(pp)
 }
-
 count.total.mismatches <- function(x){
   str_count(x,pattern = "X")
 }
-
 get.loci <- function(x){
   sgtf <- gtf[gtf[["seqnames"]] == x[["sseqid"]],]
   sub.sgtf <- sgtf[sgtf[["start"]] <= x[["sstart"]],]
@@ -128,7 +123,6 @@ get.loci <- function(x){
   }
   return(paste(ret.gene[1]))
 }
-
 construct.final.df <- function(x){
   sa <- df[df[["qseqid"]] == x,]
   en <- energies[energies[["name"]] == x,]
@@ -138,8 +132,6 @@ construct.final.df <- function(x){
   sa[["gc.content"]] <- letter.freq(unique(as.character(sa[["pam"]])))
   return(sa)
 }
-
-
 get.gene.coord <- function(x){
   sub <- gtf[grep(x, gtf$gene_id,fixed = T),]
   if(nrow(sub)<1){
@@ -148,8 +140,6 @@ get.gene.coord <- function(x){
   sub <- sub[sub$type == "gene",]
   return(paste(sub$seqnames, ":", sub$start, "-", sub$end, sep = ""))
 }
-
-
 exit <- function() {
   .Internal(.invokeRestart(list(NULL, NULL), NULL))
 }

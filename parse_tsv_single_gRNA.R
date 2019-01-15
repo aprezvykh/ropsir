@@ -188,5 +188,11 @@ names(final.df) <- c("gRNA.id", "chr", "evalue", "bitscore",
                      "Aligned.sequence", "cigar.string", "total.mismatch.N", "mismatch.position",
                      "validation", "Locus", "gRNA.energy", "PAM.sequence", "GC.content", "Genomic.coordinate")
 
+final.df <- final.df[order(final.df$total.mismatch.N,decreasing = F),]
+final.df$Number.of.genes.with.full.match <- length(unique(final.df[final.df$cigar.string == "|||||||||||||||||||||||"]$Locus))
+final.df$Number.of.different.mutation.locations <- length(unique(final.df$cigar.string))
+
 write.csv(final.df, paste(prefix, "-single-gRNA-results.csv", sep = ""))
+system(paste("ssconvert ", prefix, "-single-gRNA-results.csv ", prefix, "-single-gRNA-results.xls 2> /dev/null", sep = ""))
 stopCluster(cl = cl)
+cat("Done!", sep = "\n")
